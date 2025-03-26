@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('type_workers', function (Blueprint $table) {
+        Schema::create('replacements', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 20)->unique();
+            $table->bigInteger('worker_id')->constrained();
+            $table->bigInteger('state_id')->constrained();
+            $table->boolean('is_pay')->default(false);
+            $table->decimal('pay_mount', 9, 2)->nullable();
+            $table->text('comment')->nullable();
             $table->foreignId('created_by')->constrained('users');
             $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
@@ -26,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('type_workers');
+        Schema::dropIfExists('replacements');
     }
 };

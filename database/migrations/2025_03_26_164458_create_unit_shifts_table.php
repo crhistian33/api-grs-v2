@@ -13,7 +13,10 @@ return new class extends Migration
     {
         Schema::create('unit_shifts', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('unit_id')->constrained()->onDelete(('cascade'));
+            $table->foreignId('shift_id')->constrained()->onDelete(('cascade'));
             $table->timestamps();
+            $table->softDeletes()->nullable();
         });
     }
 

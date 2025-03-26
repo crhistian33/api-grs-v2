@@ -13,7 +13,13 @@ return new class extends Migration
     {
         Schema::create('state_workers', function (Blueprint $table) {
             $table->id();
+            $table->string('name', 50)->unique();
+            $table->string('shortName', 20)->unique();
+            $table->boolean('isInassist')->default(false);
+            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
+            $table->softDeletes()->nullable();
         });
     }
 

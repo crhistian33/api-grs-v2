@@ -13,7 +13,12 @@ return new class extends Migration
     {
         Schema::create('companies', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 20)->unique();
+            $table->string('name', 100)->unique();
+            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
+            $table->softDeletes()->nullable();
         });
     }
 

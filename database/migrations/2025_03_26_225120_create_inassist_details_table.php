@@ -13,7 +13,13 @@ return new class extends Migration
     {
         Schema::create('inassist_details', function (Blueprint $table) {
             $table->id();
+            $table->date('inassist_date');
+            $table->text('comment')->nullable();
+            $table->foreignId('replacement_id')->constrained();
+            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
+            $table->softDeletes()->nullable();
         });
     }
 

@@ -13,7 +13,16 @@ return new class extends Migration
     {
         Schema::create('units', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 20)->unique();
+            $table->string('name', 100)->unique();
+            $table->string('location', 200)->nullable();
+            $table->foreignId('center_id')->constrained();
+            $table->foreignId('customer_id')->constrained()->onDelete(('cascade'));
+            $table->integer('min_assign')->default(0);
+            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
+            $table->softDeletes()->nullable();
         });
     }
 

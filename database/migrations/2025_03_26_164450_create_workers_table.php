@@ -13,7 +13,16 @@ return new class extends Migration
     {
         Schema::create('workers', function (Blueprint $table) {
             $table->id();
+            $table->string('name', 100);
+            $table->string('dni', 8);
+            $table->date('birth_date');
+            $table->string('bank_account', 50)->nullable();
+            $table->foreignId('company_id')->constrained()->onDelete('restrict');
+            $table->foreignId('type_worker_id')->constrained()->onDelete('restrict');
+            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
+            $table->softDeletes()->nullable();
         });
     }
 
