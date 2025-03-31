@@ -2,27 +2,48 @@
 
 namespace App\Http\Requests\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class UnitRequest extends FormRequest
+class UnitRequest extends BaseRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'code' => [
+                'required',
+                Rule::unique('units')->ignore($this->route('unit')),
+            ],
+            'name' => [
+                'required',
+                Rule::unique('units')->ignore($this->route('unit')),
+            ],
+            'center_id' => 'required',
+            'customer_id' => 'required',
+            'min_assign' => 'required',
+            'created_by' => [
+                Rule::when($this->isMethod('POST'), [
+                    'required',
+                ]),
+            ]
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'code.required' => 'El código es requerido',
+            'code.unique' => 'El código ingresado ya existe',
+            'name.required' => 'El nombre es requerido',
+            'name.unique' => 'El nombre ingresado ya existe',
+            'center_id.required' => 'El centro de costo es requerido',
+            'customer_id.required' => 'El cliente es requerido',
+            'min_assign.required' => 'El número de trabajadores a asignar es requerido',
+            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

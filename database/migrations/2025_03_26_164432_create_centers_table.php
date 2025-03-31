@@ -16,8 +16,8 @@ return new class extends Migration
             $table->string('code', 20)->unique();
             $table->string('name', 50)->unique();
             $table->decimal('mount', 9, 2);
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('created_by')->constrained('users')->onDelete('restrict');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('restrict');
             $table->timestamps();
             $table->softDeletes()->nullable();
         });

@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('inassist_details', function (Blueprint $table) {
-            $table->foreignId('inassist_id')->before('inassist_date')->constrained();
+        Schema::table('users', function (Blueprint $table) {
+            $table->softDeletes()->nullable();
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('inassist_details', function (Blueprint $table) {
-            //
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropSoftDeletes();
         });
     }
 };

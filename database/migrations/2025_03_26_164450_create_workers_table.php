@@ -19,8 +19,8 @@ return new class extends Migration
             $table->string('bank_account', 50)->nullable();
             $table->foreignId('company_id')->constrained()->onDelete('restrict');
             $table->foreignId('type_worker_id')->constrained()->onDelete('restrict');
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('created_by')->constrained('users')->onDelete('restrict');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('restrict');
             $table->timestamps();
             $table->softDeletes()->nullable();
         });

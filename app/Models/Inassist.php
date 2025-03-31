@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Inassist extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'worker_id',
         'state_worker_id',
@@ -33,5 +36,15 @@ class Inassist extends Model
     public function inassistDetails()
     {
         return $this->hasMany(InassistDetail::class);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

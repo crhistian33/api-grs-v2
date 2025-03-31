@@ -16,6 +16,7 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date')->nullable();
             $table->boolean('state')->default(true);
+            $table->foreignId('worker_id')->constrained()->onDelete('restrict');
             $table->foreignId('unit_shift_id')->constrained()->onDelete('restrict');
             $table->foreignId('created_by')->constrained('users');
             $table->foreignId('updated_by')->nullable()->constrained('users');

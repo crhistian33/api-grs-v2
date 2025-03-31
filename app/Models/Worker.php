@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Worker extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'name',
         'dni',
@@ -37,5 +40,20 @@ class Worker extends Model
     public function assignments()
     {
         return $this->hasMany(Assignment::class);
+    }
+
+    public function inassists()
+    {
+        return $this->hasMany(Inassist::class);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

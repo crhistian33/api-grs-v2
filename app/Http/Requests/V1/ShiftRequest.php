@@ -2,27 +2,42 @@
 
 namespace App\Http\Requests\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class ShiftRequest extends FormRequest
+class ShiftRequest extends BaseRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'name' => [
+                'required',
+                Rule::unique('shifts')->ignore($this->route('shift')),
+            ],
+            'shortName' => [
+                'required',
+                Rule::unique('shifts')->ignore($this->route('shift')),
+            ],
+            'created_by' => [
+                Rule::when($this->isMethod('POST'), [
+                    'required',
+                ]),
+            ]
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'El nombre es requerido',
+            'name.unique' => 'El nombre ingresado ya existe',
+            'shortName.required' => 'El nombre corto es requerido',
+            'shortName.unique' => 'El nombre corto ingresado ya existe',
+            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

@@ -2,27 +2,32 @@
 
 namespace App\Http\Requests\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class AssignmentRequest extends FormRequest
+class AssignmentRequest extends BaseRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'unit_shift_id' => 'required',
+            'created_by' => [
+                Rule::when($this->isMethod('POST'), [
+                    'required',
+                ]),
+            ]
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'unit_shift_id.required' => 'La unidad por turno es requerida',
+            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

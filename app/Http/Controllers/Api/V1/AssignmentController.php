@@ -3,24 +3,33 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\AssignmentRequest;
+use App\Models\Assignment;
 use Illuminate\Http\Request;
 
 class AssignmentController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    protected $assignments;
+    protected $assignment;
+    protected array $relations = ['unitshift', 'workers'];
+
     public function index()
     {
-        //
+        $this->assignments = Assignment::with($this->relations)->get();
+        return response()->json([
+            'data' => $this->assignments
+        ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(AssignmentRequest $request)
     {
-        //
+        $this->assignment = Assignment::create($request->all());
+        return response()->json([
+            'data' => $this->assignment
+        ]);
     }
 
     /**

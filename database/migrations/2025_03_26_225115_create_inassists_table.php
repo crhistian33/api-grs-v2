@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::create('inassists', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('worker_id')->constrained();
-            $table->foreignId('state_worker_id')->constrained();
+            $table->foreignId('worker_id')->constrained()->onDelete('restrict');
+            $table->foreignId('state_worker_id')->constrained()->onDelete('restrict');
             $table->integer('month')->nullable();
-            $table->foreignId('unit_shift_id')->nullable()->constrained();
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('unit_shift_id')->nullable()->constrained()->onDelete('restrict');
+            $table->foreignId('created_by')->constrained('users')->onDelete('restrict');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('restrict');
             $table->timestamps();
             $table->softDeletes()->nullable();
         });

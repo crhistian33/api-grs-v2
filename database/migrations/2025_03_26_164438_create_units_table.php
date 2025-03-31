@@ -16,11 +16,11 @@ return new class extends Migration
             $table->string('code', 20)->unique();
             $table->string('name', 100)->unique();
             $table->string('location', 200)->nullable();
-            $table->foreignId('center_id')->constrained();
-            $table->foreignId('customer_id')->constrained()->onDelete(('cascade'));
             $table->integer('min_assign')->default(0);
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('center_id')->constrained()->onDelete('restrict');
+            $table->foreignId('customer_id')->constrained()->onDelete(('cascade'));
+            $table->foreignId('created_by')->constrained('users')->onDelete('restrict');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('restrict');
             $table->timestamps();
             $table->softDeletes()->nullable();
         });

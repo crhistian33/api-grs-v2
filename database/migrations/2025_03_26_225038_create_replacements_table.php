@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('replacements', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('worker_id')->constrained();
-            $table->bigInteger('state_id')->constrained();
+            $table->bigInteger('worker_id')->constrained()->onDelete('cascade');
+            $table->bigInteger('state_workers_id')->constrained()->onDelete('restrict');
             $table->boolean('is_pay')->default(false);
             $table->decimal('pay_mount', 9, 2)->nullable();
             $table->text('comment')->nullable();
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('created_by')->constrained('users')->onDelete('restrict');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('restrict');
             $table->timestamps();
             $table->softDeletes()->nullable();
         });

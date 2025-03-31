@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Unit extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'code',
         'name',
@@ -32,5 +36,20 @@ class Unit extends Model
         return $this->belongsToMany(Shift::class, 'unit_shifts')
             ->withPivot('id')
             ->using(UnitShift::class);
+    }
+
+    public function unitShifts(): HasMany
+    {
+        return $this->hasMany(UnitShift::class);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }
