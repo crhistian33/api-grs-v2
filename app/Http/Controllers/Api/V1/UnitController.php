@@ -99,8 +99,9 @@ class UnitController extends Controller
     public function destroy(Unit $unit)
     {
         if($unit->unitShifts()->whereHas('assignments')->exists() || $unit->unitShifts()->whereHas('inassists')->exists()) {
-            return $this->errorResponseNotFound(
+            return $this->errorResponseMessage(
                 ApiConstants::UNITSHIFTS_DELETED_ERROR,
+                Response::HTTP_CONFLICT,
             );
         }
         $unit->delete();
@@ -132,7 +133,10 @@ class UnitController extends Controller
 
             // Caso 1: Si ninguno existe, retornar error
             if (empty($existingIds)) {
-                return $this->errorResponseNotFound(ApiConstants::DELETEALL_NOTFOUND_SUCCESS_MESSAGE);
+                return $this->errorResponseMessage(
+                    ApiConstants::DELETEALL_NOTFOUND_SUCCESS_MESSAGE,
+                    Response::HTTP_CONFLICT,
+                );
             }
 
             // Obtener items con relaciones
@@ -142,7 +146,10 @@ class UnitController extends Controller
 
             // Caso 2: Si todos tienen relaciones, no eliminar ninguno
             if (count($itemsWithRelations) === count($existingIds)) {
-                return $this->errorResponseNotFound(ApiConstants::UNITSHIFTS_DELETED_ALL_ERROR);
+                return $this->errorResponseMessage(
+                    ApiConstants::UNITSHIFTS_DELETED_ALL_ERROR,
+                    Response::HTTP_CONFLICT,
+                );
             }
 
             // Obtener items sin relaciones para eliminar
@@ -176,7 +183,10 @@ class UnitController extends Controller
 
             // Caso 1: Si ninguno existe, retornar error
             if(empty($existingIds)) {
-                return $this->errorResponseNotFound(ApiConstants::DELETEALL_FORCE_NOTFOUND_SUCCESS_MESSAGE);
+                return $this->errorResponseMessage(
+                    ApiConstants::DELETEALL_FORCE_NOTFOUND_SUCCESS_MESSAGE,
+                    Response::HTTP_CONFLICT,
+                );
             }
 
             //Eliminar los items existentes
@@ -227,8 +237,9 @@ class UnitController extends Controller
 
             // Caso 1: Si ninguno existe, retornar error
             if(count($notFoundIds) === count($ids)) {
-                return $this->errorResponseNotFound(
+                return $this->errorResponseMessage(
                     ApiConstants::RESTOREALL_NOTFOUND_SUCCESS_MESSAGE,
+                    Response::HTTP_CONFLICT,
                 );
             }
 

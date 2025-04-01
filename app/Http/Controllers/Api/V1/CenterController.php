@@ -75,8 +75,9 @@ class CenterController extends Controller
     public function destroy(Center $center)
     {
         if($center->units()->exists()) {
-            return $this->errorResponseNotFound(
+            return $this->errorResponseMessage(
                 ApiConstants::UNITS_DELETED_ERROR,
+                Response:: HTTP_CONFLICT
             );
         }
         $center->delete();
@@ -108,7 +109,10 @@ class CenterController extends Controller
 
             // Caso 1: Si ninguno existe, retornar error
             if (empty($existingIds)) {
-                return $this->errorResponseNotFound(ApiConstants::DELETEALL_NOTFOUND_SUCCESS_MESSAGE);
+                return $this->errorResponseMessage(
+                    ApiConstants::DELETEALL_NOTFOUND_SUCCESS_MESSAGE,
+                    Response::HTTP_CONFLICT,
+                );
             }
 
             // Obtener Items con relaciones
@@ -118,7 +122,10 @@ class CenterController extends Controller
 
             // Caso 2: Si todos tienen relaciones, no eliminar ninguno
             if (count($itemsWithRelations) === count($existingIds)) {
-                return $this->errorResponseNotFound(ApiConstants::UNITS_DELETED_ALL_ERROR);
+                return $this->errorResponseMessage(
+                    ApiConstants::UNITS_DELETED_ALL_ERROR,
+                    Response::HTTP_CONFLICT,
+                );
             }
 
             // Obtener items sin relaciones para eliminar
@@ -152,7 +159,10 @@ class CenterController extends Controller
 
             // Caso 1: Si ninguno existe, retornar error
             if(empty($existingIds)) {
-                return $this->errorResponseNotFound(ApiConstants::DELETEALL_FORCE_NOTFOUND_SUCCESS_MESSAGE);
+                return $this->errorResponseMessage(
+                    ApiConstants::DELETEALL_FORCE_NOTFOUND_SUCCESS_MESSAGE,
+                    Response::HTTP_CONFLICT,
+                );
             }
 
             //Eliminar los items existentes
@@ -203,8 +213,9 @@ class CenterController extends Controller
 
             // Caso 1: Si ninguno existe, retornar error
             if(count($notFoundIds) === count($ids)) {
-                return $this->errorResponseNotFound(
+                return $this->errorResponseMessage(
                     ApiConstants::RESTOREALL_NOTFOUND_SUCCESS_MESSAGE,
+                    Response::HTTP_CONFLICT,
                 );
             }
 

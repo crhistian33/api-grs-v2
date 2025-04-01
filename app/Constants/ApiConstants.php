@@ -38,6 +38,18 @@ class ApiConstants
     public const ITEM_NOT_FOUND = 'El recurso solicitado no existe';
     public const ITEMS_NOT_FOUND = 'No se encontraron recursos';
 
+    // Constantes de Autorización
+    public const LOGIN_TITLE = 'Inicio de sesión con éxito';
+    public const LOGIN_MESSAGE = 'El usuario ha iniciado sesión con éxito.';
+    public const UNAUTHORIZED_TITLE = 'Acceso no autorizado';
+    public const LOGIN_NOT_CREDENTIALES = 'Credenciales incorrectas';
+    public const USER_NOT_FOUND = 'El usuario no existe';
+    public const LOGOUT_SUCCESS_TITLE = 'Cierre de sesión exitoso';
+    public const LOGOUT_SUCCESS_MESSAGE = 'El usuario ha cerrado sesión con éxito.';
+    public const TOKEN_UNAUTHORIZED = 'No tiene autorización para acceder. Inicie sesión.';
+    public const TOKEN_INVALID = 'Su sesión no es válida. Por favor, inicie sesión nuevamente.';
+    public const TOKEN_EXPIRED = 'Su sesión ha caducado. Por favor, vuelva a iniciar sesión.';
+
     // Constantes de errores de relaciones
     public const TYPEWORKERS_DELETED_ERROR = 'No se puede eliminar porque tiene un trabajador asociado.';
     public const TYPEWORKERS_DELETED_ALL_ERROR = 'No se pueden eliminar porque tienen trabajadores asociados.';

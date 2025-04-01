@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use PDOException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Tymon\JWTAuth\Exceptions\JWTException;
 use Throwable;
+use Tymon\JWTAuth\Exceptions\TokenExpiredException;
+use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 
 trait ApiResponse
 {
@@ -21,6 +24,7 @@ trait ApiResponse
     }
 
     public function errorResponse(Throwable $exception) {
+        //return get_class($exception);
         $errorDetails = $this->getErrorDetails($exception);
 
         return response()->json([
@@ -30,12 +34,12 @@ trait ApiResponse
         ], $errorDetails['code']);
     }
 
-    public function errorResponseNotFound($message = null) {
+    public function errorResponseMessage($message = null, $code = null) {
         return response()->json([
             'success' => false,
             'message' => $message,
-            'status' => Response::HTTP_CONFLICT,
-        ], Response::HTTP_CONFLICT);
+            'status' => $code,
+        ], $code);
     }
 
     private function getErrorDetails($exception): array
@@ -65,7 +69,28 @@ trait ApiResponse
             ];
         }
 
-        // Manejo de excepciones HTTP específicas
+        if ($exception instanceof TokenInvalidException) {
+            return [
+                'message' => ApiConstants::TOKEN_INVALID,
+                'code' => Response::HTTP_UNAUTHORIZED
+            ];
+        }
+
+        if ($exception instanceof TokenExpiredException) {
+            return [
+                'message' => ApiConstants::TOKEN_EXPIRED,
+                'code' => Response::HTTP_UNAUTHORIZED
+            ];
+        }
+
+        if($exception instanceof JWTException) {
+            return [
+                'message' => ApiConstants::TOKEN_UNAUTHORIZED,
+                'code' => Response::HTTP_UNAUTHORIZED
+            ];
+        }
+
+        // Manejo de errores HTTP
         if ($exception instanceof HttpException) {
             return match ($exception->getStatusCode()) {
                 403 => [
