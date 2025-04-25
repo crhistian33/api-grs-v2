@@ -8,7 +8,10 @@ use App\Http\Requests\V1\UnitRequest;
 use App\Http\Resources\V1\UnitResource;
 use App\Models\Company;
 use App\Models\Unit;
+use App\Models\UnitShift;
+use App\Models\Assignment;
 use App\Traits\ApiResponse;
+use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,31 +19,26 @@ use Symfony\Component\HttpFoundation\Response;
 class UnitController extends Controller
 {
     use ApiResponse;
+    use FilterCompany;
 
     protected $units;
     protected $unit;
+    protected $trashes;
     protected array $relations = ['center', 'customer', 'createdBy', 'updatedBy', 'shifts'];
 
-    public function index()
+    public function index(?Company $company = null)
     {
-        $this->units = Unit::with($this->relations)->get();
-        return $this->successResponse(
-            UnitResource::collection($this->units),
-            ApiConstants::LIST_TITLE,
-            $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
-        );
-    }
+        $query = Unit::with($this->relations);
+        $query = $this->getData($query, $company)->get();
+        $this->units = UnitResource::collection($query);
+        $this->trashes = $this->getTrashedRecords(Unit::class, $company);
 
-    public function getByCompany(Company $company) {
-        $this->units = Unit::with($this->relations)
-            ->whereHas('customer', function($q) use ($company) {
-                $q->where('company_id', $company->id);
-            })
-            ->get();
         return $this->successResponse(
-            UnitResource::collection($this->units),
+            $this->units,
             ApiConstants::LIST_TITLE,
             $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -56,11 +54,12 @@ class UnitController extends Controller
     public function store(UnitRequest $request)
     {
         $data = $request->all();
-        $this->unit = Unit::create($data);
+        $unit = Unit::create($data);
         if($request->has('shifts')) {
             $shiftIds = collect($request->shifts)->pluck('id')->toArray();
-            $this->unit->shifts()->attach($shiftIds);
+            $unit->shifts()->attach($shiftIds);
         }
+        $this->unit = new UnitResource($unit);
 
         return $this->successResponse(
             $this->unit,
@@ -82,21 +81,62 @@ class UnitController extends Controller
 
     public function update(UnitRequest $request, Unit $unit)
     {
-        $unit->update($request->all());
-        if($request->has('shifts')) {
-            $shiftIds = collect($request->shifts)->pluck('id')->toArray();
-            $unit->shifts()->sync($shiftIds);
-        }
-        $this->unit = new UnitResource($unit);
+        return DB::transaction(function() use ($request, $unit) {
+            $unit->update($request->all());
+            if($request->has('shifts')) {
+                $currentShiftIds = $unit->shifts()->pluck('shifts.id')->toArray();
+                //dd($currentShiftIds);
+                $newShiftIds = collect($request->shifts)->pluck('id')->toArray();
+                //dd($newShiftIds);
+                $shiftsToRemove = array_diff($currentShiftIds, $newShiftIds);
+                //dd($shiftsToRemove);
 
-        return $this->successResponse(
-            $this->unit,
-            ApiConstants::UPDATE_SUCCESS_TITLE,
-            ApiConstants::UPDATE_SUCCESS_MESSAGE,
-        );
+                foreach ($shiftsToRemove as $shiftId) {
+                    $unitShift = UnitShift::where('unit_id', $unit->id)
+                                         ->where('shift_id', $shiftId)
+                                         ->first();
+                    //dd($unitShift);
+                    if ($unitShift) {
+                        $hasAssignments = Assignment::where('unit_shift_id', $unitShift->id)->exists();
+
+                        if ($hasAssignments) {
+                            $unitShift->delete();
+                        } else {
+                            $unitShift->forceDelete();
+                        }
+                    }
+                }
+
+                $shiftsToAdd = array_diff($newShiftIds, $currentShiftIds);
+                $unit->shifts()->attach($shiftsToAdd);
+
+                //$shiftIds = collect($request->shifts)->pluck('id')->toArray();
+                //$unit->shifts()->sync($shiftIds);
+
+                // Primero restauramos los registros soft-deleted que están en la nueva selección
+                // foreach($shiftIds as $shiftId) {
+                //     $unit->shifts()->withTrashed()
+                //         ->wherePivot('shift_id', $shiftId)
+                //         ->restore();
+                // }
+
+                // // Luego sincronizamos para agregar los nuevos y eliminar los que ya no están
+                // $unit->shifts()->sync($shiftIds);
+
+                // $unit->load('shifts');
+            }
+
+            $this->unit = new UnitResource($unit);
+
+            return $this->successResponse(
+                $this->unit,
+                ApiConstants::UPDATE_SUCCESS_TITLE,
+                ApiConstants::UPDATE_SUCCESS_MESSAGE,
+            );
+        });
     }
 
-    public function destroy(Unit $unit)
+    public function destroy(Unit $unit, ?Company $company = null)
     {
         if($unit->unitShifts()->whereHas('assignments')->exists() || $unit->unitShifts()->whereHas('inassists')->exists()) {
             return $this->errorResponseMessage(
@@ -105,10 +145,15 @@ class UnitController extends Controller
             );
         }
         $unit->delete();
+
+        $this->trashes = $this->getTrashedRecords(Unit::class, $company);
+
         return $this->successResponse(
             null,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -123,9 +168,9 @@ class UnitController extends Controller
         );
     }
 
-    public function destroyAll(Request $request)
+    public function destroyAll(Request $request, ?Company $company = null)
     {
-        return DB::transaction(function() use ($request) {
+        return DB::transaction(function() use ($request, $company) {
             $ids = collect($request->input('resources'))->pluck('id')->toArray();
             $existingItems = Unit::whereIn('id', $ids)->get();
             $existingIds = $existingItems->pluck('id')->toArray();
@@ -156,21 +201,25 @@ class UnitController extends Controller
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
             Unit::whereIn('id', $itemsToDelete)->delete();
 
-            // Caso 3: Si hay IDs no encontrados (eliminación parcial)
+            $this->trashes = $this->getTrashedRecords(Unit::class, $company);
+
+            $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
+
             if (!empty($notFoundIds)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE;
             }
 
-            // Caso 4: Si todos existen pero algunos tienen relaciones
-            if (!empty($workersWithRelations)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE);
+            if (!empty($itemsWithRelations)) {
+                $message = ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE;
             }
 
-            // Caso 5: Si todos existen y ninguno tiene relaciones (todos eliminados)
-            return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                ApiConstants::DELETEALL_SUCCESS_MESSAGE);
+            return $this->successResponse(
+                $itemsToDelete,
+                ApiConstants::DELETE_SUCCESS_TITLE,
+                $message,
+                Response::HTTP_OK,
+                $this->trashes
+            );
         });
     }
 
@@ -215,7 +264,7 @@ class UnitController extends Controller
         $this->unit = Unit::onlyTrashed()->findOrFail($id);
         $this->unit->restore();
         return $this->successResponse(
-            new UnitResource($this->unit),
+            null,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );

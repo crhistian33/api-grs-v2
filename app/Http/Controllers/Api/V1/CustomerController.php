@@ -9,6 +9,7 @@ use App\Http\Resources\V1\CustomerResource;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Traits\ApiResponse;
+use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,36 +17,35 @@ use Symfony\Component\HttpFoundation\Response;
 class CustomerController extends Controller
 {
     use ApiResponse;
+    use FilterCompany;
 
     protected $customers;
     protected $customer;
+    protected $trashes;
     protected array $relations = ['company', 'createdBy', 'updatedBy'];
 
-    public function index()
+    public function index(?Company $company = null)
     {
-        $this->customers = Customer::with($this->relations)->get();
+        $query = Customer::with($this->relations);
+        $query = $this->getData($query, $company)->get();
+        $this->customers = CustomerResource::collection($query);
+        $this->trashes = $this->getTrashedRecords(Customer::class, $company);
         return $this->successResponse(
-            CustomerResource::collection($this->customers),
+            $this->customers,
             ApiConstants::LIST_TITLE,
             $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
-    public function getByCompany(Company $company) {
-        $this->customers = Customer::with($this->relations)
-            ->where('company_id', $company->id)
-            ->get();
-        return $this->successResponse(
-            CustomerResource::collection($this->customers),
-            ApiConstants::LIST_TITLE,
-            $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
-        );
-    }
+    public function getTrashed(?Company $company = null) {
+        $query = Customer::with($this->relations)->onlyTrashed();
+        $query = $this->getData($query, $company)->get();
+        $this->customers = CustomerResource::collection($query);
 
-    public function getTrashed() {
-        $this->customers = Customer::with($this->relations)->onlyTrashed()->get();
         return $this->successResponse(
-            CustomerResource::collection($this->customers),
+            $this->customers,
             ApiConstants::LIST_TITLE,
             $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
@@ -54,7 +54,8 @@ class CustomerController extends Controller
     public function store(CustomerRequest $request)
     {
         $data = $request->all();
-        $this->customer = Customer::create($data);
+        $customer = Customer::create($data);
+        $this->customer = new CustomerResource($customer);
 
         return $this->successResponse(
             $this->customer,
@@ -76,7 +77,9 @@ class CustomerController extends Controller
 
     public function update(CustomerRequest $request, Customer $customer)
     {
-        $this->customer = $customer->update($request->all());
+        $customer->update($request->all());
+        $this->customer = new CustomerResource($customer);
+
         return $this->successResponse(
             $this->customer,
             ApiConstants::UPDATE_SUCCESS_TITLE,
@@ -84,7 +87,7 @@ class CustomerController extends Controller
         );
     }
 
-    public function destroy(Customer $customer)
+    public function destroy(Customer $customer, ?Company $company = null)
     {
         if($customer->units()->whereHas('unitShifts.assignments')->exists() || $customer->units()->whereHas('unitShifts.inassists')->exists()) {
             return $this->errorResponseMessage(
@@ -93,10 +96,14 @@ class CustomerController extends Controller
             );
         }
         $customer->delete();
+        $this->trashes = $this->getTrashedRecords(Customer::class, $company);
+
         return $this->successResponse(
             null,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -111,9 +118,9 @@ class CustomerController extends Controller
         );
     }
 
-    public function destroyAll(Request $request)
+    public function destroyAll(Request $request, ?Company $company = null)
     {
-        return DB::transaction(function() use ($request) {
+        return DB::transaction(function() use ($request, $company) {
             $ids = collect($request->input('resources'))->pluck('id')->toArray();
             $existingItems = Customer::whereIn('id', $ids)->get();
             $existingIds = $existingItems->pluck('id')->toArray();
@@ -144,21 +151,25 @@ class CustomerController extends Controller
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
             Customer::whereIn('id', $itemsToDelete)->delete();
 
-            // Caso 3: Si hay IDs no encontrados (eliminación parcial)
+            $this->trashes = $this->getTrashedRecords(Customer::class, $company);
+
+            $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
+
             if (!empty($notFoundIds)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE;
             }
 
-            // Caso 4: Si todos existen pero algunos tienen relaciones
-            if (!empty($workersWithRelations)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE);
+            if (!empty($itemsWithRelations)) {
+                $message = ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE;
             }
 
-            // Caso 5: Si todos existen y ninguno tiene relaciones (todos eliminados)
-            return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                ApiConstants::DELETEALL_SUCCESS_MESSAGE);
+            return $this->successResponse(
+                $itemsToDelete,
+                ApiConstants::DELETE_SUCCESS_TITLE,
+                $message,
+                Response::HTTP_OK,
+                $this->trashes
+            );
         });
     }
 
@@ -203,7 +214,7 @@ class CustomerController extends Controller
         $this->customer = Customer::onlyTrashed()->findOrFail($id);
         $this->customer->restore();
         return $this->successResponse(
-            new CustomerResource($this->customer),
+            null,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );

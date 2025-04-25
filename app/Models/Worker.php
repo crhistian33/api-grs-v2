@@ -20,6 +20,10 @@ class Worker extends Model
         'updated_by'
     ];
 
+    protected $casts = [
+        'birth_date' => 'datetime',
+    ];
+
     public function typeWorker()
     {
         return $this->belongsTo(TypeWorker::class);
@@ -32,9 +36,8 @@ class Worker extends Model
 
     public function unitShifts()
     {
-        return $this->belongsToMany(UnitShift::class, 'assignments')
-            ->withPivot('id')
-            ->using(Assignment::class);
+        return $this->belongsToMany(UnitShift::class, 'assignments', 'worker_id', 'unit_shift_id')
+            ->withPivot('id');
     }
 
     public function assignments()

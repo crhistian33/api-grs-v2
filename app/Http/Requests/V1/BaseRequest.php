@@ -10,10 +10,13 @@ class BaseRequest extends FormRequest
 {
     public function failedValidation(Validator $validator)
     {
+        $errors = $validator->errors()->all();
+        $errorMessage = implode("\n", $errors);
+
         throw new HttpResponseException(response()->json([
             'success'     => false,
             'status_code' => 422,
-            'message'     => $validator->errors(),
+            'message'     => $errorMessage,
         ], 422));
     }
 }

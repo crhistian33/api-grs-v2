@@ -19,7 +19,7 @@ class ApiConstants
     public const DELETEALL_NOTFOUND_SUCCESS_MESSAGE = 'No se encontraron recursos para eliminar.';
 
     public const DELETE_FORCE_SUCCESS_TITLE = 'Eliminación exitosa';
-    public const DELETE_FORCE_SUCCESS_MESSAGE = 'El recurso ha sido eliminado exitosamente.';
+    public const DELETE_FORCE_SUCCESS_MESSAGE = 'El recurso ha sido eliminado permanentemente con éxito.';
     public const DELETEALL_FORCE_SUCCESS_MESSAGE = 'Los recursos han sido eliminados permanentemente con éxito.';
     public const DELETEALL_FORCE_INCOMPLETE_SUCCESS_MESSAGE = 'Los recursos han sido eliminados permanentemente con éxito, no encontrando algunos de ellos.';
     public const DELETEALL_FORCE_NOTFOUND_SUCCESS_MESSAGE = 'No se encontraron recursos para eliminar permanentemente.';

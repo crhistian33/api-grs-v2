@@ -8,6 +8,7 @@ use App\Http\Requests\V1\ShiftRequest;
 use App\Http\Resources\V1\ShiftResource;
 use App\Models\Shift;
 use App\Traits\ApiResponse;
+use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,29 +16,33 @@ use Symfony\Component\HttpFoundation\Response;
 class ShiftController extends Controller
 {
     use ApiResponse;
+    use FilterCompany;
 
     protected $shifts;
     protected $shift;
+    protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
 
     public function index()
     {
-        $this->shifts = Shift::with($this->relations)->get();
+        $shifts = Shift::with($this->relations)->get();
+        $this->shifts = ShiftResource::collection($shifts);
+        $this->trashes = $this->getTrashedRecords(Shift::class);
+
         return $this->successResponse(
-            ShiftResource::collection($this->shifts),
+            $this->shifts,
             ApiConstants::LIST_TITLE,
             $this->shifts->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes
         );
-
-        return response()->json([
-            'data' => $this->shifts
-        ]);
     }
 
     public function getTrashed() {
-        $this->shifts = Shift::with($this->relations)->onlyTrashed()->get();
+        $shifts = Shift::with($this->relations)->onlyTrashed()->get();
+        $this->shifts = ShiftResource::collection($shifts);
         return $this->successResponse(
-            ShiftResource::collection($this->shifts),
+            $this->shifts,
             ApiConstants::LIST_TITLE,
             $this->shifts->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
@@ -46,7 +51,8 @@ class ShiftController extends Controller
     public function store(ShiftRequest $request)
     {
         $data = $request->all();
-        $this->shift = Shift::create($data);
+        $shift = Shift::create($data);
+        $this->shift = new ShiftResource($shift);
 
         return $this->successResponse(
             $this->shift,
@@ -87,10 +93,14 @@ class ShiftController extends Controller
             );
         }
         $shift->delete();
+        $this->trashes = $this->getTrashedRecords(Shift::class);
+
         return $this->successResponse(
             null,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -138,21 +148,25 @@ class ShiftController extends Controller
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
             Shift::whereIn('id', $itemsToDelete)->delete();
 
-            // Caso 3: Si hay IDs no encontrados (eliminación parcial)
+            $this->trashes = $this->getTrashedRecords(Shift::class);
+
+            $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
+
             if (!empty($notFoundIds)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE;
             }
 
-            // Caso 4: Si todos existen pero algunos tienen relaciones
-            if (!empty($workersWithRelations)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE);
+            if (!empty($itemsWithRelations)) {
+                $message = ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE;
             }
 
-            // Caso 5: Si todos existen y ninguno tiene relaciones (todos eliminados)
-            return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                ApiConstants::DELETEALL_SUCCESS_MESSAGE);
+            return $this->successResponse(
+                $itemsToDelete,
+                ApiConstants::DELETE_SUCCESS_TITLE,
+                $message,
+                Response::HTTP_OK,
+                $this->trashes
+            );
         });
     }
 
@@ -197,7 +211,7 @@ class ShiftController extends Controller
         $this->shift = Shift::onlyTrashed()->findOrFail($id);
         $this->shift->restore();
         return $this->successResponse(
-            new ShiftResource($this->shift),
+            null,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );

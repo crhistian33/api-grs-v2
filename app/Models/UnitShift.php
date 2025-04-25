@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class UnitShift extends Model
@@ -14,6 +15,7 @@ class UnitShift extends Model
         'shift_id'
     ];
 
+    public $incrementing = true;
     public function unit()
     {
         return $this->belongsTo(Unit::class);
@@ -26,9 +28,8 @@ class UnitShift extends Model
 
     public function workers()
     {
-        return $this->belongsToMany(Worker::class, 'assignments')
-            ->withPivot('id')
-            ->using(Assignment::class);
+        return $this->belongsToMany(Worker::class, 'assignments', 'worker_id', 'unit_shift_id')
+            ->withPivot('id');
     }
 
     public function assignments()

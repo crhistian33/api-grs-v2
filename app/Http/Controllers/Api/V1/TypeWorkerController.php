@@ -8,6 +8,7 @@ use App\Http\Requests\V1\TypeWorkerRequest;
 use App\Http\Resources\V1\TypeWorkerResource;
 use App\Models\TypeWorker;
 use App\Traits\ApiResponse;
+use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,18 +16,24 @@ use Symfony\Component\HttpFoundation\Response;
 class TypeWorkerController extends Controller
 {
     use ApiResponse;
+    use FilterCompany;
 
     protected $typeworkers;
     protected $typeworker;
+    protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
 
     public function index()
     {
         $this->typeworkers = TypeWorker::with($this->relations)->get();
+        $this->trashes = $this->getTrashedRecords(TypeWorker::class);
+
         return $this->successResponse(
             TypeWorkerResource::collection($this->typeworkers),
             ApiConstants::LIST_TITLE,
             $this->typeworkers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -42,7 +49,8 @@ class TypeWorkerController extends Controller
     public function store(TypeWorkerRequest $request)
     {
         $data = $request->all();
-        $this->typeworker = TypeWorker::create($data);
+        $typeworker = TypeWorker::create($data);
+        $this->typeworker = new TypeWorkerResource($typeworker);
 
         return $this->successResponse(
             $this->typeworker,
@@ -65,8 +73,10 @@ class TypeWorkerController extends Controller
     public function update(TypeWorkerRequest $request, TypeWorker $typeWorker)
     {
         $typeWorker->update($request->all());
+        $this->typeworker = new TypeWorkerResource($typeWorker);
+
         return $this->successResponse(
-            $typeWorker,
+            $this->typeworker,
             ApiConstants::UPDATE_SUCCESS_TITLE,
             ApiConstants::UPDATE_SUCCESS_MESSAGE,
         );
@@ -81,10 +91,14 @@ class TypeWorkerController extends Controller
             );
         }
         $typeWorker->delete();
+        $this->trashes = $this->getTrashedRecords(TypeWorker::class);
+
         return $this->successResponse(
             null,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -132,21 +146,25 @@ class TypeWorkerController extends Controller
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
             TypeWorker::whereIn('id', $itemsToDelete)->delete();
 
-            // Caso 3: Si hay IDs no encontrados (eliminación parcial)
+            $this->trashes = $this->getTrashedRecords(TypeWorker::class);
+
+            $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
+
             if (!empty($notFoundIds)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE;
             }
 
-            // Caso 4: Si todos existen pero algunos tienen relaciones
             if (!empty($itemsWithRelations)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE;
             }
 
-            // Caso 5: Si todos existen y ninguno tiene relaciones (todos eliminados)
-            return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                ApiConstants::DELETEALL_SUCCESS_MESSAGE);
+            return $this->successResponse(
+                $itemsToDelete,
+                ApiConstants::DELETE_SUCCESS_TITLE,
+                $message,
+                Response::HTTP_OK,
+                $this->trashes
+            );
         });
     }
 
@@ -191,7 +209,7 @@ class TypeWorkerController extends Controller
         $this->typeworker = TypeWorker::onlyTrashed()->findOrFail($id);
         $this->typeworker->restore();
         return $this->successResponse(
-            new TypeWorkerResource($this->typeworker),
+            null,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );

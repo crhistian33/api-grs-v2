@@ -8,6 +8,7 @@ use App\Http\Requests\V1\CenterRequest;
 use App\Http\Resources\V1\CenterResource;
 use App\Models\Center;
 use App\Traits\ApiResponse;
+use App\Traits\FilterCompany;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,25 +16,34 @@ use Illuminate\Support\Facades\DB;
 class CenterController extends Controller
 {
     use ApiResponse;
+    use FilterCompany;
 
     protected $centers;
     protected $center;
+    protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
 
     public function index()
     {
-        $this->centers = Center::with($this->relations)->get();
+        $centers = Center::with($this->relations)->get();
+        $this->centers = CenterResource::collection($centers);
+        $this->trashes = $this->getTrashedRecords(Center::class);
+
         return $this->successResponse(
-            CenterResource::collection($this->centers),
+            $this->centers,
             ApiConstants::LIST_TITLE,
             $this->centers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
     public function getTrashed() {
-        $this->centers = Center::with($this->relations)->onlyTrashed()->get();
+        $centers = Center::with($this->relations)->onlyTrashed()->get();
+        $this->centers = CenterResource::collection($centers);
+
         return $this->successResponse(
-            CenterResource::collection($this->centers),
+            $this->centers,
             ApiConstants::LIST_TITLE,
             $this->centers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
@@ -42,7 +52,8 @@ class CenterController extends Controller
     public function store(CenterRequest $request)
     {
         $data = $request->all();
-        $this->center = Center::create($data);
+        $center = Center::create($data);
+        $this->center = new CenterResource($center);
 
         return $this->successResponse(
             $this->center,
@@ -65,8 +76,10 @@ class CenterController extends Controller
     public function update(CenterRequest $request, Center $center)
     {
         $center->update($request->all());
+        $this->center = new CenterResource($center);
+
         return $this->successResponse(
-            $center,
+            $this->center,
             ApiConstants::UPDATE_SUCCESS_TITLE,
             ApiConstants::UPDATE_SUCCESS_MESSAGE,
         );
@@ -81,10 +94,14 @@ class CenterController extends Controller
             );
         }
         $center->delete();
+        $this->trashes = $this->getTrashedRecords(Center::class);
+
         return $this->successResponse(
             null,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -132,21 +149,25 @@ class CenterController extends Controller
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
             Center::whereIn('id', $itemsToDelete)->delete();
 
-            // Caso 3: Si hay IDs no encontrados (eliminación parcial)
+            $this->trashes = $this->getTrashedRecords(Center::class);
+
+            $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
+
             if (!empty($notFoundIds)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE;
             }
 
-            // Caso 4: Si todos existen pero algunos tienen relaciones
             if (!empty($itemsWithRelations)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE;
             }
 
-            // Caso 5: Si todos existen y ninguno tiene relaciones (todos eliminados)
-            return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                ApiConstants::DELETEALL_SUCCESS_MESSAGE);
+            return $this->successResponse(
+                $itemsToDelete,
+                ApiConstants::DELETE_SUCCESS_TITLE,
+                $message,
+                Response::HTTP_OK,
+                $this->trashes
+            );
         });
     }
 
@@ -191,7 +212,7 @@ class CenterController extends Controller
         $this->center = Center::onlyTrashed()->findOrFail($id);
         $this->center->restore();
         return $this->successResponse(
-            new CenterResource($this->center),
+            null,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );

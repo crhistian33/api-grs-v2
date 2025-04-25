@@ -14,9 +14,9 @@ class Unit extends Model
         'code',
         'name',
         'location',
+        'min_assign',
         'center_id',
         'customer_id',
-        'min_assign',
         'created_by',
         'updated_by'
     ];
@@ -34,8 +34,8 @@ class Unit extends Model
     public function shifts()
     {
         return $this->belongsToMany(Shift::class, 'unit_shifts')
-            ->withPivot('id')
-            ->using(UnitShift::class);
+            ->withPivot('id');
+            //->whereNull('unit_shifts.deleted_at');
     }
 
     public function unitShifts(): HasMany
@@ -51,5 +51,24 @@ class Unit extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function (Unit $unit) {
+            if (!$unit->isForceDeleting()) {
+                $unit->unitShifts()->get()->each(function (UnitShift $unitshift) {
+                    $unitshift->delete();
+                });
+            }
+        });
+
+        static::restoring(function (Unit $unit) {
+            $unit->unitShifts()->onlyTrashed()->get()->each(function (UnitShift $unitshift) {
+                $unitshift->restore();
+            });
+        });
     }
 }

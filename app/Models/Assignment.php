@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Assignment extends Model
@@ -13,6 +14,7 @@ class Assignment extends Model
         'start_date',
         'end_date',
         'state',
+        'worker_id',
         'unit_shift_id',
         'created_by',
         'updated_by'

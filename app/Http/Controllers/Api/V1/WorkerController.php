@@ -9,6 +9,7 @@ use App\Http\Resources\V1\WorkerResource;
 use App\Models\Company;
 use App\Models\Worker;
 use App\Traits\ApiResponse;
+use App\Traits\FilterCompany;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,36 +17,36 @@ use Illuminate\Support\Facades\DB;
 class WorkerController extends Controller
 {
     use ApiResponse;
+    use FilterCompany;
 
     protected $workers;
     protected $worker;
+    protected $trashes;
     protected array $relations = ['typeworker', 'company', 'createdBy', 'updatedBy'];
 
-    public function index()
+    public function index(?Company $company = null)
     {
-        $this->workers = Worker::with($this->relations)->get();
+        $query = Worker::with($this->relations);
+        $query = $this->getData($query, $company)->get();
+        $this->workers = WorkerResource::collection($query);
+        $this->trashes = $this->getTrashedRecords(Worker::class, $company);
+
         return $this->successResponse(
-            WorkerResource::collection($this->workers),
+            $this->workers,
             ApiConstants::LIST_TITLE,
             $this->workers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
-    public function getByCompany(Company $company) {
-        $this->workers = Worker::with($this->relations)
-            ->where('company_id', $company->id)
-            ->get();
-        return $this->successResponse(
-            WorkerResource::collection($this->workers),
-            ApiConstants::LIST_TITLE,
-            $this->workers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
-        );
-    }
+    public function getTrashed(?Company $company = null) {
+        $query = Worker::with($this->relations)->onlyTrashed();
+        $query = $this->getData($query, $company)->get();
+        $this->workers = WorkerResource::collection($query);
 
-    public function getTrashed() {
-        $this->workers = Worker::with($this->relations)->onlyTrashed()->get();
         return $this->successResponse(
-            WorkerResource::collection($this->workers),
+            $this->workers,
             ApiConstants::LIST_TITLE,
             $this->workers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
@@ -54,7 +55,8 @@ class WorkerController extends Controller
     public function store(WorkerRequest $request)
     {
         $data = $request->all();
-        $this->worker = Worker::create($data);
+        $worker = Worker::create($data);
+        $this->worker = new WorkerResource($worker);
 
         return $this->successResponse(
             $this->worker,
@@ -77,14 +79,16 @@ class WorkerController extends Controller
     public function update(WorkerRequest $request, Worker $worker)
     {
         $worker->update($request->all());
+        $this->worker = new WorkerResource($worker);
+
         return $this->successResponse(
-            $worker,
+            $this->worker,
             ApiConstants::UPDATE_SUCCESS_TITLE,
             ApiConstants::UPDATE_SUCCESS_MESSAGE,
         );
     }
 
-    public function destroy(Worker $worker)
+    public function destroy(Worker $worker, ?Company $company = null)
     {
         if($worker->unitShifts()->exists() || $worker->inassists()->exists()) {
             return $this->errorResponseMessage(
@@ -93,10 +97,14 @@ class WorkerController extends Controller
             );
         }
         $worker->delete();
+        $this->trashes = $this->getTrashedRecords(Worker::class, $company);
+
         return $this->successResponse(
             null,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
         );
     }
 
@@ -111,9 +119,9 @@ class WorkerController extends Controller
         );
     }
 
-    public function destroyAll(Request $request)
+    public function destroyAll(Request $request, ?Company $company = null)
     {
-        return DB::transaction(function() use ($request) {
+        return DB::transaction(function() use ($request, $company) {
             $ids = collect($request->input('resources'))->pluck('id')->toArray();
             $existingItems = Worker::whereIn('id', $ids)->get();
             $existingIds = $existingItems->pluck('id')->toArray();
@@ -144,21 +152,25 @@ class WorkerController extends Controller
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
             Worker::whereIn('id', $itemsToDelete)->delete();
 
-            // Caso 3: Si hay IDs no encontrados (eliminación parcial)
+            $this->trashes = $this->getTrashedRecords(Worker::class, $company);
+
+            $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
+
             if (!empty($notFoundIds)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE);
+                $message = ApiConstants::DELETEALL_INCOMPLETE_SUCCESS_MESSAGE;
             }
 
-            // Caso 4: Si todos existen pero algunos tienen relaciones
-            if (!empty($workersWithRelations)) {
-                return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                    ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE);
+            if (!empty($itemsWithRelations)) {
+                $message = ApiConstants::DELETEALL_RELATIONS_SUCCESS_MESSAGE;
             }
 
-            // Caso 5: Si todos existen y ninguno tiene relaciones (todos eliminados)
-            return $this->successResponse(null, ApiConstants::DELETE_SUCCESS_TITLE,
-                ApiConstants::DELETEALL_SUCCESS_MESSAGE);
+            return $this->successResponse(
+                $itemsToDelete,
+                ApiConstants::DELETE_SUCCESS_TITLE,
+                $message,
+                Response::HTTP_OK,
+                $this->trashes
+            );
         });
     }
 
@@ -203,7 +215,7 @@ class WorkerController extends Controller
         $this->worker = Worker::onlyTrashed()->findOrFail($id);
         $this->worker->restore();
         return $this->successResponse(
-            new WorkerResource($this->worker),
+            null,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );

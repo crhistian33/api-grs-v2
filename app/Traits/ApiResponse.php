@@ -14,12 +14,13 @@ use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 
 trait ApiResponse
 {
-    public function successResponse($data = null, $title =null, $message = null, $code = Response::HTTP_OK) {
+    public function successResponse($data = null, $title =null, $message = null, $code = Response::HTTP_OK, $trashes = 0) {
         return response()->json([
             'success' => true,
             'data' => $data,
             'title' => $title,
-            'message' => $message
+            'message' => $message,
+            'trashes' => $trashes,
         ], $code);
     }
 
