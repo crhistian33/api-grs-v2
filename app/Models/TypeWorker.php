@@ -15,9 +15,9 @@ class TypeWorker extends Model
         'updated_by'
     ];
 
-    public function workers()
+    public function contracts()
     {
-        return $this->hasMany(Worker::class);
+        return $this->hasMany(Contract::class);
     }
 
     public function createdBy()

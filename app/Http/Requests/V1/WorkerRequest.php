@@ -25,7 +25,9 @@ class WorkerRequest extends BaseRequest
             ],
             'birth_date' => 'required',
             'bank_account' => 'required',
-            'type_worker_id' => 'required',
+            'contract.type_worker_id' => 'required',
+            'contract.start_date' => 'required',
+            'contract.end_date' => 'required',
             'company_id' => 'required',
             'created_by' => [
                 Rule::when($this->isMethod('POST'), [
@@ -44,7 +46,10 @@ class WorkerRequest extends BaseRequest
             'dni.unique' => 'El DNI ingresado ya existe',
             'dni.max' => 'El DNI puede tener hasta 8 dígitos',
             'birth_date.required' => 'La fecha de nacimiento es requerida',
-            'type_worker_id.required' => 'El tipo de trabajador es requerido',
+            'bank_account.required' => 'La cuenta de banco es requerida',
+            'contract.type_worker_id.required' => 'El tipo de trabajador es requerido',
+            'contract.start_date.required' => 'La fecha de inicio es requerida',
+            'contract.end_date.required' => 'La fecha de cese es requerida',
             'company_id.required' => 'La empresa es requerida',
             'created_by.required' => 'El usuario es requerido',
         ];

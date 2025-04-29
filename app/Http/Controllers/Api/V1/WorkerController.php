@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\V1\WorkerContractRequest;
 use App\Http\Requests\V1\WorkerRequest;
 use App\Http\Resources\V1\WorkerResource;
 use App\Models\Company;
@@ -22,7 +23,8 @@ class WorkerController extends Controller
     protected $workers;
     protected $worker;
     protected $trashes;
-    protected array $relations = ['typeworker', 'company', 'createdBy', 'updatedBy'];
+    protected array $relations = ['company', 'createdBy', 'updatedBy'];
+    protected array $attributes = ['name', 'dni', 'birth_date', 'bank_account', 'company_id'];
 
     public function index(?Company $company = null)
     {
@@ -56,6 +58,11 @@ class WorkerController extends Controller
     {
         $data = $request->all();
         $worker = Worker::create($data);
+
+        if($request->has('contract')) {
+            $worker->contracts()->create($request->input('contract'));
+        }
+
         $this->worker = new WorkerResource($worker);
 
         return $this->successResponse(
@@ -78,13 +85,35 @@ class WorkerController extends Controller
 
     public function update(WorkerRequest $request, Worker $worker)
     {
-        $worker->update($request->all());
+        $worker->update($request->only($this->attributes));
+        if($request->has('contract')) {
+            $contract = $worker->lastContract()->first();
+            if($contract) {
+                $contract->update($request->input('contract'));
+            } else {
+                $worker->contracts()->create($request->input('contract'));
+            }
+        }
         $this->worker = new WorkerResource($worker);
 
         return $this->successResponse(
             $this->worker,
             ApiConstants::UPDATE_SUCCESS_TITLE,
             ApiConstants::UPDATE_SUCCESS_MESSAGE,
+        );
+    }
+
+    public function renew(Worker $worker, WorkerContractRequest $request)
+    {
+        if($request->has('contract')) {
+            $worker->contracts()->create($request->input('contract'));
+        }
+        $this->worker = new WorkerResource($worker);
+
+        return $this->successResponse(
+            $this->worker,
+            ApiConstants::RENEW_SUCCESS_TITLE,
+            ApiConstants::RENEW_SUCCESS_MESSAGE,
         );
     }
 

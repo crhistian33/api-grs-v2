@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Worker extends Model
@@ -23,11 +24,6 @@ class Worker extends Model
     protected $casts = [
         'birth_date' => 'datetime',
     ];
-
-    public function typeWorker()
-    {
-        return $this->belongsTo(TypeWorker::class);
-    }
 
     public function company()
     {
@@ -50,6 +46,11 @@ class Worker extends Model
         return $this->hasMany(Inassist::class);
     }
 
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(Contract::class);
+    }
+
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -58,5 +59,24 @@ class Worker extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Determinar si el trabajador tiene un contrato vigente
+     */
+    public function hasActiveContract(): bool
+    {
+        return $this->contracts()
+            ->where('start_date', '<=', now())
+            ->where(function ($query) {
+                $query->whereNull('end_date')
+                      ->orWhere('end_date', '>=', now());
+            })
+            ->exists();
+    }
+
+    public function lastContract()
+    {
+        return $this->hasOne(Contract::class)->latest('start_date');
     }
 }

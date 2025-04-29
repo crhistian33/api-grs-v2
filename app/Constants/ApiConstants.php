@@ -10,6 +10,9 @@ class ApiConstants
     public const UPDATE_SUCCESS_TITLE = 'Actualización exitosa';
     public const UPDATE_SUCCESS_MESSAGE = 'El recurso ha sido actualizado exitosamente.';
 
+    public const RENEW_SUCCESS_TITLE = 'Renovación exitosa';
+    public const RENEW_SUCCESS_MESSAGE = 'El contrato ha sido renovado exitosamente.';
+
     public const DELETE_SUCCESS_TITLE = 'Eliminación exitosa';
     public const DELETE_SUCCESS_MESSAGE = 'El recurso ha sido eliminado exitosamente.';
 

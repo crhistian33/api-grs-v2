@@ -29,6 +29,7 @@ Route::group(['middleware' => 'jwt'], function () {
 
     Route::get('/v1/workers/getbycompany/{company}', [WorkerV1::class, 'getByCompany']);
     Route::get('/v1/workers/gettrashed', [WorkerV1::class, 'getTrashed']);
+    Route::patch('/v1/workers/renew/{worker}', [WorkerV1::class, 'renew']);
     Route::delete('/v1/workers/destroy/{worker}', [WorkerV1::class, 'destroyForce']);
     Route::post('/v1/workers/destroyes', [WorkerV1::class, 'destroyAll']);
     Route::post('/v1/workers/destroyesforce', [WorkerV1::class, 'destroyForceAll']);
