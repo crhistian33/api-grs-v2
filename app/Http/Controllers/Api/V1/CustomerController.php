@@ -14,6 +14,7 @@ use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class CustomerController extends Controller
 {
@@ -26,12 +27,12 @@ class CustomerController extends Controller
     protected array $relations = ['company', 'createdBy', 'updatedBy'];
     protected array $fields = ['id', 'name', 'code'];
 
-    public function index(?Company $company = null)
+    public function index()
     {
-        $query = Customer::with($this->relations);
-        $query = $this->getData($query, $company)->get();
+        $query = Customer::with($this->relations)->get();
         $this->customers = CustomerResource::collection($query);
-        $this->trashes = $this->getTrashedRecords(Customer::class, $company);
+        $this->trashes = $this->getTrashedRecords(Customer::class);
+
         return $this->successResponse(
             $this->customers,
             ApiConstants::LIST_TITLE,
@@ -41,9 +42,38 @@ class CustomerController extends Controller
         );
     }
 
-    public function getTrashed(?Company $company = null) {
-        $query = Customer::with($this->relations)->onlyTrashed();
-        $query = $this->getData($query, $company)->get();
+    public function getByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+
+        $query = Customer::with($this->relations)->whereIn('company_id', $companyIds)->get();
+        $this->customers = CustomerResource::collection($query);
+        $this->trashes = Customer::onlyTrashed()->whereIn('company_id', $companyIds)->count();
+
+        return $this->successResponse(
+            $this->customers,
+            ApiConstants::LIST_TITLE,
+            $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
+        );
+    }
+
+    public function getTrashed() {
+        $query = Customer::with($this->relations)->onlyTrashed()->get();
+        $this->customers = CustomerResource::collection($query);
+
+        return $this->successResponse(
+            $this->customers,
+            ApiConstants::LIST_TITLE,
+            $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getTrashedByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+        $query = Customer::with($this->relations)->onlyTrashed()->whereIn('company_id', $companyIds)->get();
         $this->customers = CustomerResource::collection($query);
 
         return $this->successResponse(
@@ -64,9 +94,25 @@ class CustomerController extends Controller
         );
     }
 
+    public function getOptionsByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+
+        $customers = Customer::select($this->fields)->whereIn('company_id', $companyIds)->get();
+        $this->customers = OptionsCodeResource::collection($customers);
+
+        return $this->successResponse(
+            $this->customers,
+            ApiConstants::LIST_TITLE,
+            $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
     public function store(CustomerRequest $request)
     {
+        $user = JWTAuth::parseToken()->authenticate();
         $data = $request->all();
+        $data['created_by'] = $user->id;
         $customer = Customer::create($data);
         $this->customer = new CustomerResource($customer);
 
@@ -90,7 +136,10 @@ class CustomerController extends Controller
 
     public function update(CustomerRequest $request, Customer $customer)
     {
-        $customer->update($request->all());
+        $user = JWTAuth::parseToken()->authenticate();
+        $data = $request->all();
+        $data['updated_by'] = $user->id;
+        $customer->update($data);
         $this->customer = new CustomerResource($customer);
 
         return $this->successResponse(
@@ -108,11 +157,13 @@ class CustomerController extends Controller
                 Response:: HTTP_CONFLICT,
             );
         }
+
+        $this->customer = new CustomerResource($customer);
         $customer->delete();
         $this->trashes = $this->getTrashedRecords(Customer::class, $company);
 
         return $this->successResponse(
-            null,
+            $this->customer,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -162,6 +213,8 @@ class CustomerController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = Customer::whereIn('id', $itemsToDelete)->get();
+            $this->customers = CustomerResource::collection($itemsDelete);
             Customer::whereIn('id', $itemsToDelete)->delete();
 
             $this->trashes = $this->getTrashedRecords(Customer::class, $company);
@@ -177,7 +230,7 @@ class CustomerController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->customers,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -224,10 +277,12 @@ class CustomerController extends Controller
 
     public function restore($id)
     {
-        $this->customer = Customer::onlyTrashed()->findOrFail($id);
-        $this->customer->restore();
+        $customer = Customer::onlyTrashed()->findOrFail($id);
+        $this->customer = new CustomerResource($customer);
+        $customer->restore();
+
         return $this->successResponse(
-            null,
+            $this->customer,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -256,11 +311,13 @@ class CustomerController extends Controller
             }
 
             Customer::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = Customer::whereIn('id', $trashedIds)->get();
+            $this->customers = CustomerResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->customers,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -268,7 +325,7 @@ class CustomerController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->customers,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

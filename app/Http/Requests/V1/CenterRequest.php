@@ -23,11 +23,6 @@ class CenterRequest extends BaseRequest
                 Rule::unique('centers')->ignore($this->route('center')),
             ],
             'mount' => 'required',
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -39,7 +34,6 @@ class CenterRequest extends BaseRequest
             'name.required' => 'El nombre es requerido',
             'name.unique' => 'El nombre ingresado ya existe',
             'mount.required' => 'El monto es requerido',
-            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

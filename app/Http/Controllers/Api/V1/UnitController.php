@@ -16,6 +16,7 @@ use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class UnitController extends Controller
 {
@@ -28,12 +29,32 @@ class UnitController extends Controller
     protected array $relations = ['center', 'customer', 'createdBy', 'updatedBy', 'shifts'];
     protected array $fields = ['id', 'name'];
 
-    public function index(?Company $company = null)
+    public function index()
     {
-        $query = Unit::with($this->relations);
-        $query = $this->getData($query, $company)->get();
+        $query = Unit::with($this->relations)->get();
         $this->units = UnitResource::collection($query);
-        $this->trashes = $this->getTrashedRecords(Unit::class, $company);
+        $this->trashes = $this->getTrashedRecords(Unit::class);
+
+        return $this->successResponse(
+            $this->units,
+            ApiConstants::LIST_TITLE,
+            $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
+        );
+    }
+
+    public function getByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+
+        $query = Unit::with($this->relations)->whereHas('customer', function($query) use ($companyIds) {
+            $query->whereIn('company_id', $companyIds);
+        })->get();
+        $this->units = UnitResource::collection($query);
+        $this->trashes = Unit::onlyTrashed()->whereHas('customer', function($query) use ($companyIds) {
+            $query->whereIn('company_id', $companyIds);
+        })->count();
 
         return $this->successResponse(
             $this->units,
@@ -45,9 +66,26 @@ class UnitController extends Controller
     }
 
     public function getTrashed() {
-        $this->units = Unit::with($this->relations)->onlyTrashed()->get();
+        $units = Unit::with($this->relations)->onlyTrashed()->get();
+        $this->units = UnitResource::collection($units);
+
         return $this->successResponse(
-            UnitResource::collection($this->units),
+            $this->units,
+            ApiConstants::LIST_TITLE,
+            $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getTrashedByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+        $query = Unit::with($this->relations)->onlyTrashed()->whereHas('customer', function($query) use ($companyIds) {
+            $query->whereIn('company_id', $companyIds);
+        })->get();
+        $this->units = UnitResource::collection($query);
+
+        return $this->successResponse(
+            $this->units,
             ApiConstants::LIST_TITLE,
             $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
@@ -64,22 +102,43 @@ class UnitController extends Controller
         );
     }
 
-    public function store(UnitRequest $request)
-    {
-        $data = $request->all();
-        $unit = Unit::create($data);
-        if($request->has('shifts')) {
-            $shiftIds = collect($request->shifts)->pluck('id')->toArray();
-            $unit->shifts()->attach($shiftIds);
-        }
-        $this->unit = new UnitResource($unit);
+    public function getOptionsByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+
+        $units = Unit::select($this->fields)->whereHas('customer', function($query) use ($companyIds) {
+            $query->whereIn('company_id', $companyIds);
+        })->get();
+        $this->units = OptionsResource::collection($units);
 
         return $this->successResponse(
-            $this->unit,
-            ApiConstants::CREATE_SUCCESS_TITLE,
-            ApiConstants::CREATE_SUCCESS_MESSAGE,
-            Response::HTTP_CREATED
+            $this->units,
+            ApiConstants::LIST_TITLE,
+            $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
+    }
+
+    public function store(UnitRequest $request)
+    {
+        return DB::transaction(function() use ($request) {
+            $user = JWTAuth::parseToken()->authenticate();
+            $data = $request->all();
+            $data['created_by'] = $user->id;
+            $unit = Unit::create($data);
+
+            if($request->has('shifts')) {
+                $shiftIds = collect($request->shifts)->pluck('id')->toArray();
+                $unit->shifts()->attach($shiftIds);
+            }
+            $this->unit = new UnitResource($unit);
+
+            return $this->successResponse(
+                $this->unit,
+                ApiConstants::CREATE_SUCCESS_TITLE,
+                ApiConstants::CREATE_SUCCESS_MESSAGE,
+                Response::HTTP_CREATED
+            );
+        });
     }
 
     public function show(Unit $unit)
@@ -95,20 +154,20 @@ class UnitController extends Controller
     public function update(UnitRequest $request, Unit $unit)
     {
         return DB::transaction(function() use ($request, $unit) {
-            $unit->update($request->all());
+            $user = JWTAuth::parseToken()->authenticate();
+            $data = $request->all();
+            $data['updated_by'] = $user->id;
+            $unit->update($data);
+
             if($request->has('shifts')) {
                 $currentShiftIds = $unit->shifts()->pluck('shifts.id')->toArray();
-                //dd($currentShiftIds);
                 $newShiftIds = collect($request->shifts)->pluck('id')->toArray();
-                //dd($newShiftIds);
                 $shiftsToRemove = array_diff($currentShiftIds, $newShiftIds);
-                //dd($shiftsToRemove);
 
                 foreach ($shiftsToRemove as $shiftId) {
                     $unitShift = UnitShift::where('unit_id', $unit->id)
                                          ->where('shift_id', $shiftId)
                                          ->first();
-                    //dd($unitShift);
                     if ($unitShift) {
                         $hasAssignments = Assignment::where('unit_shift_id', $unitShift->id)->exists();
 
@@ -122,21 +181,6 @@ class UnitController extends Controller
 
                 $shiftsToAdd = array_diff($newShiftIds, $currentShiftIds);
                 $unit->shifts()->attach($shiftsToAdd);
-
-                //$shiftIds = collect($request->shifts)->pluck('id')->toArray();
-                //$unit->shifts()->sync($shiftIds);
-
-                // Primero restauramos los registros soft-deleted que están en la nueva selección
-                // foreach($shiftIds as $shiftId) {
-                //     $unit->shifts()->withTrashed()
-                //         ->wherePivot('shift_id', $shiftId)
-                //         ->restore();
-                // }
-
-                // // Luego sincronizamos para agregar los nuevos y eliminar los que ya no están
-                // $unit->shifts()->sync($shiftIds);
-
-                // $unit->load('shifts');
             }
 
             $this->unit = new UnitResource($unit);
@@ -157,12 +201,14 @@ class UnitController extends Controller
                 Response::HTTP_CONFLICT,
             );
         }
+
+        $this->unit = new UnitResource($unit);
         $unit->delete();
 
         $this->trashes = $this->getTrashedRecords(Unit::class, $company);
 
         return $this->successResponse(
-            null,
+            $this->unit,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -212,6 +258,8 @@ class UnitController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = Unit::whereIn('id', $itemsToDelete)->get();
+            $this->units = UnitResource::collection($itemsDelete);
             Unit::whereIn('id', $itemsToDelete)->delete();
 
             $this->trashes = $this->getTrashedRecords(Unit::class, $company);
@@ -227,7 +275,7 @@ class UnitController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->units,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -274,10 +322,12 @@ class UnitController extends Controller
 
     public function restore($id)
     {
-        $this->unit = Unit::onlyTrashed()->findOrFail($id);
-        $this->unit->restore();
+        $unit = Unit::onlyTrashed()->findOrFail($id);
+        $this->unit = new UnitResource($unit);
+        $unit->restore();
+
         return $this->successResponse(
-            null,
+            $this->unit,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -306,11 +356,13 @@ class UnitController extends Controller
             }
 
             Unit::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = Unit::whereIn('id', $trashedIds)->get();
+            $this->units = UnitResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->units,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -318,7 +370,7 @@ class UnitController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->units,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

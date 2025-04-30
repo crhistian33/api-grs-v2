@@ -13,6 +13,7 @@ use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class TypeWorkerController extends Controller
 {
@@ -61,7 +62,9 @@ class TypeWorkerController extends Controller
 
     public function store(TypeWorkerRequest $request)
     {
+        $user = JWTAuth::parseToken()->authenticate();
         $data = $request->all();
+        $data['created_by'] = $user->id;
         $typeworker = TypeWorker::create($data);
         $this->typeworker = new TypeWorkerResource($typeworker);
 
@@ -85,7 +88,10 @@ class TypeWorkerController extends Controller
 
     public function update(TypeWorkerRequest $request, TypeWorker $typeWorker)
     {
-        $typeWorker->update($request->all());
+        $user = JWTAuth::parseToken()->authenticate();
+        $data = $request->all();
+        $data['updated_by'] = $user->id;
+        $typeWorker->update($data);
         $this->typeworker = new TypeWorkerResource($typeWorker);
 
         return $this->successResponse(
@@ -97,17 +103,19 @@ class TypeWorkerController extends Controller
 
     public function destroy(TypeWorker $typeWorker)
     {
-        if($typeWorker->workers()->exists()) {
+        if($typeWorker->contracts()->exists()) {
             return $this->errorResponseMessage(
                 ApiConstants::TYPEWORKERS_DELETED_ERROR,
                 Response::HTTP_CONFLICT,
             );
         }
+
+        $this->typeworker = new TypeWorkerResource($typeWorker);
         $typeWorker->delete();
         $this->trashes = $this->getTrashedRecords(TypeWorker::class);
 
         return $this->successResponse(
-            null,
+            $this->typeworker,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -144,7 +152,7 @@ class TypeWorkerController extends Controller
 
             // Obtener Items con relaciones
             $itemsWithRelations = $existingItems->filter(function($item) {
-                return $item->workers()->count() > 0;
+                return $item->contracts()->count() > 0;
             })->pluck('id')->toArray();
 
             // Caso 2: Si todos tienen relaciones, no eliminar ninguno
@@ -157,6 +165,8 @@ class TypeWorkerController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = TypeWorker::whereIn('id', $itemsToDelete)->get();
+            $this->typeworkers = TypeWorkerResource::collection($itemsDelete);
             TypeWorker::whereIn('id', $itemsToDelete)->delete();
 
             $this->trashes = $this->getTrashedRecords(TypeWorker::class);
@@ -172,7 +182,7 @@ class TypeWorkerController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->typeworkers,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -219,10 +229,12 @@ class TypeWorkerController extends Controller
 
     public function restore($id)
     {
-        $this->typeworker = TypeWorker::onlyTrashed()->findOrFail($id);
-        $this->typeworker->restore();
+        $typeworker = TypeWorker::onlyTrashed()->findOrFail($id);
+        $this->typeworker = new TypeWorkerResource($typeworker);
+        $typeworker->restore();
+
         return $this->successResponse(
-            null,
+            $this->typeworker,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -251,11 +263,13 @@ class TypeWorkerController extends Controller
             }
 
             TypeWorker::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = TypeWorker::whereIn('id', $trashedIds)->get();
+            $this->typeworkers = TypeWorkerResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->typeworkers,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -263,7 +277,7 @@ class TypeWorkerController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->typeworkers,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

@@ -22,11 +22,6 @@ class CompanyRequest extends BaseRequest
                 'required',
                 Rule::unique('companies')->ignore($this->route('company')),
             ],
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -37,7 +32,6 @@ class CompanyRequest extends BaseRequest
             'code.unique' => 'El código ingresado ya existe',
             'name.required' => 'El nombre es requerido',
             'name.unique' => 'El nombre ingresado ya existe',
-            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

@@ -22,11 +22,6 @@ class ShiftRequest extends BaseRequest
                 'required',
                 Rule::unique('shifts')->ignore($this->route('shift')),
             ],
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -37,7 +32,6 @@ class ShiftRequest extends BaseRequest
             'name.unique' => 'El nombre ingresado ya existe',
             'shortName.required' => 'El nombre corto es requerido',
             'shortName.unique' => 'El nombre corto ingresado ya existe',
-            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

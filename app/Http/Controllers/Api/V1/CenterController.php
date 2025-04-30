@@ -13,6 +13,7 @@ use App\Traits\FilterCompany;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class CenterController extends Controller
 {
@@ -65,7 +66,9 @@ class CenterController extends Controller
 
     public function store(CenterRequest $request)
     {
+        $user = JWTAuth::parseToken()->authenticate();
         $data = $request->all();
+        $data['created_by'] = $user->id;
         $center = Center::create($data);
         $this->center = new CenterResource($center);
 
@@ -89,7 +92,10 @@ class CenterController extends Controller
 
     public function update(CenterRequest $request, Center $center)
     {
-        $center->update($request->all());
+        $user = JWTAuth::parseToken()->authenticate();
+        $data = $request->all();
+        $data['updated_by'] = $user->id;
+        $center->update($data);
         $this->center = new CenterResource($center);
 
         return $this->successResponse(
@@ -107,11 +113,12 @@ class CenterController extends Controller
                 Response:: HTTP_CONFLICT
             );
         }
+        $this->center = new CenterResource($center);
         $center->delete();
         $this->trashes = $this->getTrashedRecords(Center::class);
 
         return $this->successResponse(
-            null,
+            $this->center,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -161,8 +168,9 @@ class CenterController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = Center::whereIn('id', $itemsToDelete)->get();
+            $this->centers = CenterResource::collection($itemsDelete);
             Center::whereIn('id', $itemsToDelete)->delete();
-
             $this->trashes = $this->getTrashedRecords(Center::class);
 
             $message = ApiConstants::DELETEALL_SUCCESS_MESSAGE;
@@ -176,7 +184,7 @@ class CenterController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->centers,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -223,10 +231,12 @@ class CenterController extends Controller
 
     public function restore($id)
     {
-        $this->center = Center::onlyTrashed()->findOrFail($id);
-        $this->center->restore();
+        $center = Center::onlyTrashed()->findOrFail($id);
+        $this->center = new CenterResource($center);
+        $center->restore();
+
         return $this->successResponse(
-            null,
+            $this->center,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -255,11 +265,13 @@ class CenterController extends Controller
             }
 
             Center::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = Center::whereIn('id', $trashedIds)->get();
+            $this->centers = CenterResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->centers,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -267,7 +279,7 @@ class CenterController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->centers,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

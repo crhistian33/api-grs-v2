@@ -13,7 +13,7 @@ class Company extends Model
         'code',
         'name',
         'created_by',
-        'update_by'
+        'updated_by'
     ];
 
     public function workers()
@@ -24,6 +24,12 @@ class Company extends Model
     public function customers()
     {
         return $this->hasMany(Customer::class);
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_companies')
+            ->withPivot('id');
     }
 
     public function createdBy()

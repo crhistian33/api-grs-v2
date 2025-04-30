@@ -18,11 +18,6 @@ class TypeWorkerRequest extends BaseRequest
                 'required',
                 Rule::unique('type_workers')->ignore($this->route('typeworker')),
             ],
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -31,7 +26,6 @@ class TypeWorkerRequest extends BaseRequest
         return [
             "name.required" => "El nombre es requerido",
             'name.unique' => 'El nombre ingresado ya existe',
-            "created_by.required" => "El usuario es requerido",
         ];
     }
 }

@@ -28,8 +28,9 @@ Route::group(['middleware' => 'jwt'], function () {
     Route::get('/v1/type_workers/restore/{type_worker}', [TypeWorkerV1::class, 'restore']);
     Route::post('/v1/type_workers/restores', [TypeWorkerV1::class, 'restoreAll']);
 
-    Route::get('/v1/workers/getbycompany/{company}', [WorkerV1::class, 'getByCompany']);
+    Route::get('/v1/workers/getbycompany', [WorkerV1::class, 'getByCompany']);
     Route::get('/v1/workers/gettrashed', [WorkerV1::class, 'getTrashed']);
+    Route::get('/v1/workers/gettrashedbycompany', [WorkerV1::class, 'getTrashedByCompany']);
     Route::patch('/v1/workers/renew/{worker}', [WorkerV1::class, 'renew']);
     Route::delete('/v1/workers/destroy/{worker}', [WorkerV1::class, 'destroyForce']);
     Route::post('/v1/workers/destroyes', [WorkerV1::class, 'destroyAll']);
@@ -53,18 +54,22 @@ Route::group(['middleware' => 'jwt'], function () {
     Route::get('/v1/companies/restore/{company}', [CompanyV1::class, 'restore']);
     Route::post('/v1/companies/restores', [CompanyV1::class, 'restoreAll']);
 
-    Route::get('/v1/customers/getbycompany/{company}', [CustomerV1::class, 'index']);
+    Route::get('/v1/customers/getbycompany', [CustomerV1::class, 'getByCompany']);
     Route::get('/v1/customers/gettrashed', [CustomerV1::class, 'getTrashed']);
+    Route::get('/v1/customers/gettrashedbycompany', [CustomerV1::class, 'getTrashedByCompany']);
     Route::get('/v1/customers/getoptions', [CustomerV1::class, 'getOptions']);
+    Route::get('/v1/customers/getoptionsbycompany', [CustomerV1::class, 'getOptionsByCompany']);
     Route::delete('/v1/customers/destroy/{customer}', [CustomerV1::class, 'destroyForce']);
     Route::post('/v1/customers/destroyes', [CustomerV1::class, 'destroyAll']);
     Route::post('/v1/customers/destroyesforce', [CustomerV1::class, 'destroyForceAll']);
     Route::get('/v1/customers/restore/{customer}', [CustomerV1::class, 'restore']);
     Route::post('/v1/customers/restores', [CustomerV1::class, 'restoreAll']);
 
-    Route::get('/v1/units/getbycompany/{company}', [UnitV1::class, 'index']);
+    Route::get('/v1/units/getbycompany', [UnitV1::class, 'getByCompany']);
     Route::get('/v1/units/gettrashed', [UnitV1::class, 'getTrashed']);
+    Route::get('/v1/units/gettrashedbycompany', [UnitV1::class, 'getTrashedByCompany']);
     Route::get('/v1/units/getoptions', [UnitV1::class, 'getOptions']);
+    Route::get('/v1/units/getoptionsbycompany', [UnitV1::class, 'getOptionsByCompany']);
     Route::delete('/v1/units/destroy/{unit}', [UnitV1::class, 'destroyForce']);
     Route::post('/v1/units/destroyes', [UnitV1::class, 'destroyAll']);
     Route::post('/v1/units/destroyesforce', [UnitV1::class, 'destroyForceAll']);

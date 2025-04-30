@@ -29,11 +29,6 @@ class WorkerRequest extends BaseRequest
             'contract.start_date' => 'required',
             'contract.end_date' => 'required',
             'company_id' => 'required',
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -51,7 +46,6 @@ class WorkerRequest extends BaseRequest
             'contract.start_date.required' => 'La fecha de inicio es requerida',
             'contract.end_date.required' => 'La fecha de cese es requerida',
             'company_id.required' => 'La empresa es requerida',
-            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

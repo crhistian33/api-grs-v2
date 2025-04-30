@@ -25,11 +25,6 @@ class UnitRequest extends BaseRequest
             'center_id' => 'required',
             'customer_id' => 'required',
             'min_assign' => 'required',
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -43,7 +38,6 @@ class UnitRequest extends BaseRequest
             'center_id.required' => 'El centro de costo es requerido',
             'customer_id.required' => 'El cliente es requerido',
             'min_assign.required' => 'El número de trabajadores a asignar es requerido',
-            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }

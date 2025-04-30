@@ -13,6 +13,7 @@ use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class ShiftController extends Controller
 {
@@ -63,7 +64,9 @@ class ShiftController extends Controller
 
     public function store(ShiftRequest $request)
     {
+        $user = JWTAuth::parseToken()->authenticate();
         $data = $request->all();
+        $data['created_by'] = $user->id;
         $shift = Shift::create($data);
         $this->shift = new ShiftResource($shift);
 
@@ -87,7 +90,10 @@ class ShiftController extends Controller
 
     public function update(ShiftRequest $request, Shift $shift)
     {
-        $shift->update($request->all());
+        $user = JWTAuth::parseToken()->authenticate();
+        $data = $request->all();
+        $data['updated_by'] = $user->id;
+        $shift->update($data);
         $this->shift = new ShiftResource($shift);
 
         return $this->successResponse(
@@ -105,11 +111,13 @@ class ShiftController extends Controller
                 Response::HTTP_CONFLICT,
             );
         }
+
+        $this->shift = new ShiftResource($shift);
         $shift->delete();
         $this->trashes = $this->getTrashedRecords(Shift::class);
 
         return $this->successResponse(
-            null,
+            $this->shift,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -159,6 +167,8 @@ class ShiftController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = Shift::whereIn('id', $itemsToDelete)->get();
+            $this->shifts = ShiftResource::collection($itemsDelete);
             Shift::whereIn('id', $itemsToDelete)->delete();
 
             $this->trashes = $this->getTrashedRecords(Shift::class);
@@ -174,7 +184,7 @@ class ShiftController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->shifts,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -221,10 +231,11 @@ class ShiftController extends Controller
 
     public function restore($id)
     {
-        $this->shift = Shift::onlyTrashed()->findOrFail($id);
-        $this->shift->restore();
+        $shift = Shift::onlyTrashed()->findOrFail($id);
+        $this->shift = new ShiftResource($shift);
+        $shift->restore();
         return $this->successResponse(
-            null,
+            $this->shift,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -253,11 +264,13 @@ class ShiftController extends Controller
             }
 
             Shift::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = Shift::whereIn('id', $trashedIds)->get();
+            $this->shifts = ShiftResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->shifts,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -265,7 +278,7 @@ class ShiftController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->shifts,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

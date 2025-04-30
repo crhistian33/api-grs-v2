@@ -14,6 +14,7 @@ use App\Traits\FilterCompany;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class WorkerController extends Controller
 {
@@ -26,12 +27,29 @@ class WorkerController extends Controller
     protected array $relations = ['company', 'createdBy', 'updatedBy'];
     protected array $attributes = ['name', 'dni', 'birth_date', 'bank_account', 'company_id'];
 
-    public function index(?Company $company = null)
+    public function index()
     {
-        $query = Worker::with($this->relations);
-        $query = $this->getData($query, $company)->get();
+        $query = Worker::with($this->relations)->get();
         $this->workers = WorkerResource::collection($query);
-        $this->trashes = $this->getTrashedRecords(Worker::class, $company);
+        $this->trashes = $this->getTrashedRecords(Worker::class);
+
+        return $this->successResponse(
+            $this->workers,
+            ApiConstants::LIST_TITLE,
+            $this->workers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+            Response::HTTP_OK,
+            $this->trashes,
+        );
+    }
+
+    public function getByCompany()
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+
+        $query = Worker::with($this->relations)->whereIn('company_id', $companyIds)->get();
+        $this->workers = WorkerResource::collection($query);
+        $this->trashes = Worker::onlyTrashed()->whereIn('company_id', $companyIds)->count();
 
         return $this->successResponse(
             $this->workers,
@@ -54,23 +72,40 @@ class WorkerController extends Controller
         );
     }
 
-    public function store(WorkerRequest $request)
-    {
-        $data = $request->all();
-        $worker = Worker::create($data);
-
-        if($request->has('contract')) {
-            $worker->contracts()->create($request->input('contract'));
-        }
-
-        $this->worker = new WorkerResource($worker);
+    public function getTrashedByCompany() {
+        $user = JWTAuth::parseToken()->authenticate();
+        $companyIds = $user->companies->pluck('id')->toArray();
+        $query = Worker::with($this->relations)->onlyTrashed()->whereIn('company_id', $companyIds)->get();
+        $this->workers = WorkerResource::collection($query);
 
         return $this->successResponse(
-            $this->worker,
-            ApiConstants::CREATE_SUCCESS_TITLE,
-            ApiConstants::CREATE_SUCCESS_MESSAGE,
-            Response::HTTP_CREATED
+            $this->workers,
+            ApiConstants::LIST_TITLE,
+            $this->workers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );
+    }
+
+    public function store(WorkerRequest $request)
+    {
+        return DB::transaction(function() use ($request) {
+            $user = JWTAuth::parseToken()->authenticate();
+            $data = $request->all();
+            $data['created_by'] = $user->id;
+            $worker = Worker::create($data);
+
+            if($request->has('contract')) {
+                $worker->contracts()->create($request->input('contract'));
+            }
+
+            $this->worker = new WorkerResource($worker);
+
+            return $this->successResponse(
+                $this->worker,
+                ApiConstants::CREATE_SUCCESS_TITLE,
+                ApiConstants::CREATE_SUCCESS_MESSAGE,
+                Response::HTTP_CREATED
+            );
+        });
     }
 
     public function show(Worker $worker)
@@ -85,22 +120,28 @@ class WorkerController extends Controller
 
     public function update(WorkerRequest $request, Worker $worker)
     {
-        $worker->update($request->only($this->attributes));
-        if($request->has('contract')) {
-            $contract = $worker->lastContract()->first();
-            if($contract) {
-                $contract->update($request->input('contract'));
-            } else {
-                $worker->contracts()->create($request->input('contract'));
-            }
-        }
-        $this->worker = new WorkerResource($worker);
+        return DB::transaction(function() use ($request, $worker) {
+            $user = JWTAuth::parseToken()->authenticate();
+            $data = $request->only($this->attributes);
+            $data['updated_by'] = $user->id;
+            $worker->update($data);
 
-        return $this->successResponse(
-            $this->worker,
-            ApiConstants::UPDATE_SUCCESS_TITLE,
-            ApiConstants::UPDATE_SUCCESS_MESSAGE,
-        );
+            if($request->has('contract')) {
+                $contract = $worker->lastContract()->first();
+                if($contract) {
+                    $contract->update($request->input('contract'));
+                } else {
+                    $worker->contracts()->create($request->input('contract'));
+                }
+            }
+            $this->worker = new WorkerResource($worker);
+
+            return $this->successResponse(
+                $this->worker,
+                ApiConstants::UPDATE_SUCCESS_TITLE,
+                ApiConstants::UPDATE_SUCCESS_MESSAGE,
+            );
+        });
     }
 
     public function renew(Worker $worker, WorkerContractRequest $request)
@@ -125,11 +166,13 @@ class WorkerController extends Controller
                 Response::HTTP_CONFLICT,
             );
         }
+
+        $this->worker = new WorkerResource($worker);
         $worker->delete();
         $this->trashes = $this->getTrashedRecords(Worker::class, $company);
 
         return $this->successResponse(
-            null,
+            $this->worker,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -179,6 +222,8 @@ class WorkerController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = Worker::whereIn('id', $itemsToDelete)->get();
+            $this->workers = WorkerResource::collection($itemsDelete);
             Worker::whereIn('id', $itemsToDelete)->delete();
 
             $this->trashes = $this->getTrashedRecords(Worker::class, $company);
@@ -194,7 +239,7 @@ class WorkerController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->workers,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -241,10 +286,12 @@ class WorkerController extends Controller
 
     public function restore($id)
     {
-        $this->worker = Worker::onlyTrashed()->findOrFail($id);
-        $this->worker->restore();
+        $worker = Worker::onlyTrashed()->findOrFail($id);
+        $this->worker = new WorkerResource($worker);
+        $worker->restore();
+
         return $this->successResponse(
-            null,
+            $this->worker,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -273,11 +320,13 @@ class WorkerController extends Controller
             }
 
             Worker::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = Worker::whereIn('id', $trashedIds)->get();
+            $this->workers = WorkerResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->workers,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -285,7 +334,7 @@ class WorkerController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->workers,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

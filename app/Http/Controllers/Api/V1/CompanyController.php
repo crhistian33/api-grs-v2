@@ -13,6 +13,7 @@ use App\Traits\FilterCompany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class CompanyController extends Controller
 {
@@ -60,8 +61,13 @@ class CompanyController extends Controller
 
     public function store(CompanyRequest $request)
     {
-        $data = $request->all();
+        $user = JWTAuth::parseToken()->authenticate();
+
+        $data = $request->validated();
+        $data['created_by'] = $user->id;
+
         $company = Company::create($data);
+
         $this->company = new CompanyResource($company);
 
         return $this->successResponse(
@@ -84,11 +90,16 @@ class CompanyController extends Controller
 
     public function update(CompanyRequest $request, Company $company)
     {
-        $company->update($request->all());
+        $user = JWTAuth::parseToken()->authenticate();
+
+        $data = $request->validated();
+        $data['updated_by'] = $user->id;
+        $company->update($data);
+
         $this->company = new CompanyResource($company);
 
         return $this->successResponse(
-            $company,
+            $this->company,
             ApiConstants::UPDATE_SUCCESS_TITLE,
             ApiConstants::UPDATE_SUCCESS_MESSAGE,
         );
@@ -102,11 +113,12 @@ class CompanyController extends Controller
                 Response:: HTTP_CONFLICT,
             );
         }
+        $this->company = new CompanyResource($company);
         $company->delete();
         $this->trashes = $this->getTrashedRecords(Company::class);
 
         return $this->successResponse(
-            null,
+            $this->company,
             ApiConstants::DELETE_SUCCESS_TITLE,
             ApiConstants::DELETE_SUCCESS_MESSAGE,
             Response::HTTP_OK,
@@ -156,6 +168,8 @@ class CompanyController extends Controller
 
             // Obtener items sin relaciones para eliminar
             $itemsToDelete = array_diff($existingIds, $itemsWithRelations);
+            $itemsDelete = Company::whereIn('id', $itemsToDelete)->get();
+            $this->companies = CompanyResource::collection($itemsDelete);
             Company::whereIn('id', $itemsToDelete)->delete();
 
             $this->trashes = $this->getTrashedRecords(Company::class);
@@ -171,7 +185,7 @@ class CompanyController extends Controller
             }
 
             return $this->successResponse(
-                $itemsToDelete,
+                $this->companies,
                 ApiConstants::DELETE_SUCCESS_TITLE,
                 $message,
                 Response::HTTP_OK,
@@ -218,10 +232,12 @@ class CompanyController extends Controller
 
     public function restore($id)
     {
-        $this->company = Company::onlyTrashed()->findOrFail($id);
-        $this->company->restore();
+        $company = Company::onlyTrashed()->findOrFail($id);
+        $this->company = new CompanyResource($company);
+        $company->restore();
+
         return $this->successResponse(
-            null,
+            $this->company,
             ApiConstants::RESTORE_SUCCESS_TITLE,
             ApiConstants::RESTORE_SUCCESS_MESSAGE,
         );
@@ -250,11 +266,13 @@ class CompanyController extends Controller
             }
 
             Company::onlyTrashed()->whereIn('id', $trashedIds)->restore();
+            $itemsRestore = Company::whereIn('id', $trashedIds)->get();
+            $this->companies = CompanyResource::collection($itemsRestore);
 
             // Caso 2: Si hay IDs no encontrados (restauración parcial)
             if (!empty($notFoundIds)) {
                 return $this->successResponse(
-                    null,
+                    $this->companies,
                     ApiConstants::RESTORE_SUCCESS_TITLE,
                     ApiConstants::RESTOREALL_INCOMPLETE_SUCCESS_MESSAGE,
                 );
@@ -262,7 +280,7 @@ class CompanyController extends Controller
 
             // Caso 3: Si todos existen y fueron restaurados
             return $this->successResponse(
-                null,
+                $this->companies,
                 ApiConstants::RESTORE_SUCCESS_TITLE,
                 ApiConstants::RESTOREALL_SUCCESS_MESSAGE,
             );

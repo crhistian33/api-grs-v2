@@ -23,11 +23,6 @@ class CustomerRequest extends BaseRequest
                 Rule::unique('customers')->ignore($this->route('customer')),
             ],
             'company_id' => 'required',
-            'created_by' => [
-                Rule::when($this->isMethod('POST'), [
-                    'required',
-                ]),
-            ]
         ];
     }
 
@@ -39,7 +34,6 @@ class CustomerRequest extends BaseRequest
             'name.required' => 'El nombre es requerido',
             'name.unique' => 'El nombre ingresado ya existe',
             'company_id.required' => 'La empresa es requerida',
-            'created_by.required' => 'El usuario es requerido',
         ];
     }
 }
