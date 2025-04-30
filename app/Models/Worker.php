@@ -61,16 +61,13 @@ class Worker extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    /**
-     * Determinar si el trabajador tiene un contrato vigente
-     */
     public function hasActiveContract(): bool
     {
         return $this->contracts()
-            ->where('start_date', '<=', now())
+            ->whereDate('start_date', '<=', now())
             ->where(function ($query) {
                 $query->whereNull('end_date')
-                      ->orWhere('end_date', '>=', now());
+                    ->orWhereDate('end_date', '>=', now());
             })
             ->exists();
     }

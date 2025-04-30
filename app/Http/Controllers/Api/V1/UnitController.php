@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\UnitRequest;
+use App\Http\Resources\V1\OptionsResource;
 use App\Http\Resources\V1\UnitResource;
 use App\Models\Company;
 use App\Models\Unit;
@@ -25,6 +26,7 @@ class UnitController extends Controller
     protected $unit;
     protected $trashes;
     protected array $relations = ['center', 'customer', 'createdBy', 'updatedBy', 'shifts'];
+    protected array $fields = ['id', 'name'];
 
     public function index(?Company $company = null)
     {
@@ -46,6 +48,17 @@ class UnitController extends Controller
         $this->units = Unit::with($this->relations)->onlyTrashed()->get();
         return $this->successResponse(
             UnitResource::collection($this->units),
+            ApiConstants::LIST_TITLE,
+            $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getOptions() {
+        $units = Unit::select($this->fields)->get();
+        $this->units = OptionsResource::collection($units);
+
+        return $this->successResponse(
+            $this->units,
             ApiConstants::LIST_TITLE,
             $this->units->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );

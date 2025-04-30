@@ -6,6 +6,7 @@ use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\CompanyRequest;
 use App\Http\Resources\V1\CompanyResource;
+use App\Http\Resources\V1\OptionsCodeResource;
 use App\Models\Company;
 use App\Traits\ApiResponse;
 use App\Traits\FilterCompany;
@@ -22,6 +23,7 @@ class CompanyController extends Controller
     protected $company;
     protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
+    protected array $fields = ['id', 'code', 'name'];
 
     public function index()
     {
@@ -41,6 +43,16 @@ class CompanyController extends Controller
         $this->companies = Company::with($this->relations)->onlyTrashed()->get();
         return $this->successResponse(
             CompanyResource::collection($this->companies),
+            ApiConstants::LIST_TITLE,
+            $this->companies->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getOptions() {
+        $companies = Company::select($this->fields)->get();
+        $this->companies = OptionsCodeResource::collection($companies);
+        return $this->successResponse(
+            $this->companies,
             ApiConstants::LIST_TITLE,
             $this->companies->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );

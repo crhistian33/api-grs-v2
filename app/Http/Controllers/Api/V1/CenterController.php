@@ -6,6 +6,7 @@ use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\CenterRequest;
 use App\Http\Resources\V1\CenterResource;
+use App\Http\Resources\V1\OptionsCenterResource;
 use App\Models\Center;
 use App\Traits\ApiResponse;
 use App\Traits\FilterCompany;
@@ -22,6 +23,7 @@ class CenterController extends Controller
     protected $center;
     protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
+    protected array $fields = ['id', 'code', 'name', 'mount'];
 
     public function index()
     {
@@ -38,9 +40,21 @@ class CenterController extends Controller
         );
     }
 
+
     public function getTrashed() {
         $centers = Center::with($this->relations)->onlyTrashed()->get();
         $this->centers = CenterResource::collection($centers);
+
+        return $this->successResponse(
+            $this->centers,
+            ApiConstants::LIST_TITLE,
+            $this->centers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getOptions() {
+        $centers = Center::select($this->fields)->get();
+        $this->centers = OptionsCenterResource::collection($centers);
 
         return $this->successResponse(
             $this->centers,

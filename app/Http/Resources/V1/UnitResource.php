@@ -20,7 +20,7 @@ class UnitResource extends JsonResource
             'name' => $this->name,
             'location' => $this->location,
             'min_assign' => $this->min_assign,
-            'center' => $this->center,
+            'center' => new OptionsCenterResource($this->center),
             'customer' => $this->customer,
             'company' => $this->customer->company,
             'shifts' => $this->shifts,

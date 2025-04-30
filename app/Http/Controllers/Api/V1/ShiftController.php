@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\ShiftRequest;
+use App\Http\Resources\V1\OptionsResource;
 use App\Http\Resources\V1\ShiftResource;
 use App\Models\Shift;
 use App\Traits\ApiResponse;
@@ -22,6 +23,7 @@ class ShiftController extends Controller
     protected $shift;
     protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
+    protected array $fields = ['id', 'name'];
 
     public function index()
     {
@@ -41,6 +43,17 @@ class ShiftController extends Controller
     public function getTrashed() {
         $shifts = Shift::with($this->relations)->onlyTrashed()->get();
         $this->shifts = ShiftResource::collection($shifts);
+        return $this->successResponse(
+            $this->shifts,
+            ApiConstants::LIST_TITLE,
+            $this->shifts->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getOptions() {
+        $shifts = Shift::select($this->fields)->get();
+        $this->shifts = OptionsResource::collection($shifts);
+
         return $this->successResponse(
             $this->shifts,
             ApiConstants::LIST_TITLE,

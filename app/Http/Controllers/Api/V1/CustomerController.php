@@ -6,6 +6,7 @@ use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\CustomerRequest;
 use App\Http\Resources\V1\CustomerResource;
+use App\Http\Resources\V1\OptionsCodeResource;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Traits\ApiResponse;
@@ -23,6 +24,7 @@ class CustomerController extends Controller
     protected $customer;
     protected $trashes;
     protected array $relations = ['company', 'createdBy', 'updatedBy'];
+    protected array $fields = ['id', 'name', 'code'];
 
     public function index(?Company $company = null)
     {
@@ -43,6 +45,17 @@ class CustomerController extends Controller
         $query = Customer::with($this->relations)->onlyTrashed();
         $query = $this->getData($query, $company)->get();
         $this->customers = CustomerResource::collection($query);
+
+        return $this->successResponse(
+            $this->customers,
+            ApiConstants::LIST_TITLE,
+            $this->customers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getOptions() {
+        $customers = Customer::select($this->fields)->get();
+        $this->customers = OptionsCodeResource::collection($customers);
 
         return $this->successResponse(
             $this->customers,

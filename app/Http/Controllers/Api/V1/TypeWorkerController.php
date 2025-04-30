@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\TypeWorkerRequest;
+use App\Http\Resources\V1\OptionsResource;
 use App\Http\Resources\V1\TypeWorkerResource;
 use App\Models\TypeWorker;
 use App\Traits\ApiResponse;
@@ -22,6 +23,7 @@ class TypeWorkerController extends Controller
     protected $typeworker;
     protected $trashes;
     protected array $relations = ['createdBy', 'updatedBy'];
+    protected array $fields = ['id', 'name'];
 
     public function index()
     {
@@ -41,6 +43,17 @@ class TypeWorkerController extends Controller
         $this->typeworkers = TypeWorker::with($this->relations)->onlyTrashed()->get();
         return $this->successResponse(
             TypeWorkerResource::collection($this->typeworkers),
+            ApiConstants::LIST_TITLE,
+            $this->typeworkers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
+        );
+    }
+
+    public function getOptions() {
+        $typeworkers = TypeWorker::select($this->fields)->get();
+        $this->typeworkers = OptionsResource::collection($typeworkers);
+
+        return $this->successResponse(
+            $this->typeworkers,
             ApiConstants::LIST_TITLE,
             $this->typeworkers->isEmpty() ? ApiConstants::ITEMS_NOT_FOUND : ApiConstants::LIST_MESSAGE,
         );

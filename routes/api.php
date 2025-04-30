@@ -21,6 +21,7 @@ Route::group(['middleware' => 'jwt'], function () {
     Route::get('v1/auth/logout', [AuthV1::class, 'logout']);
 
     Route::get('/v1/type_workers/gettrashed', [TypeWorkerV1::class, 'getTrashed']);
+    Route::get('/v1/type_workers/getoptions', [TypeWorkerV1::class, 'getOptions']);
     Route::delete('/v1/type_workers/destroy/{type_worker}', [TypeWorkerV1::class, 'destroyForce']);
     Route::post('/v1/type_workers/destroyes', [TypeWorkerV1::class, 'destroyAll']);
     Route::post('/v1/type_workers/destroyesforce', [TypeWorkerV1::class, 'destroyForceAll']);
@@ -37,6 +38,7 @@ Route::group(['middleware' => 'jwt'], function () {
     Route::post('/v1/workers/restores', [WorkerV1::class, 'restoreAll']);
 
     Route::get('/v1/centers/gettrashed', [CenterV1::class, 'getTrashed']);
+    Route::get('/v1/centers/getoptions', [CenterV1::class, 'getOptions']);
     Route::delete('/v1/centers/destroy/{center}', [CenterV1::class, 'destroyForce']);
     Route::post('/v1/centers/destroyes', [CenterV1::class, 'destroyAll']);
     Route::post('/v1/centers/destroyesforce', [CenterV1::class, 'destroyForceAll']);
@@ -44,6 +46,7 @@ Route::group(['middleware' => 'jwt'], function () {
     Route::post('/v1/centers/restores', [CenterV1::class, 'restoreAll']);
 
     Route::get('/v1/companies/gettrashed', [CompanyV1::class, 'getTrashed']);
+    Route::get('/v1/companies/getoptions', [CompanyV1::class, 'getOptions']);
     Route::delete('/v1/companies/destroy/{company}', [CompanyV1::class, 'destroyForce']);
     Route::post('/v1/companies/destroyes', [CompanyV1::class, 'destroyAll']);
     Route::post('/v1/companies/destroyesforce', [CompanyV1::class, 'destroyForceAll']);
@@ -52,6 +55,7 @@ Route::group(['middleware' => 'jwt'], function () {
 
     Route::get('/v1/customers/getbycompany/{company}', [CustomerV1::class, 'index']);
     Route::get('/v1/customers/gettrashed', [CustomerV1::class, 'getTrashed']);
+    Route::get('/v1/customers/getoptions', [CustomerV1::class, 'getOptions']);
     Route::delete('/v1/customers/destroy/{customer}', [CustomerV1::class, 'destroyForce']);
     Route::post('/v1/customers/destroyes', [CustomerV1::class, 'destroyAll']);
     Route::post('/v1/customers/destroyesforce', [CustomerV1::class, 'destroyForceAll']);
@@ -60,6 +64,7 @@ Route::group(['middleware' => 'jwt'], function () {
 
     Route::get('/v1/units/getbycompany/{company}', [UnitV1::class, 'index']);
     Route::get('/v1/units/gettrashed', [UnitV1::class, 'getTrashed']);
+    Route::get('/v1/units/getoptions', [UnitV1::class, 'getOptions']);
     Route::delete('/v1/units/destroy/{unit}', [UnitV1::class, 'destroyForce']);
     Route::post('/v1/units/destroyes', [UnitV1::class, 'destroyAll']);
     Route::post('/v1/units/destroyesforce', [UnitV1::class, 'destroyForceAll']);
@@ -67,6 +72,7 @@ Route::group(['middleware' => 'jwt'], function () {
     Route::post('/v1/units/restores', [UnitV1::class, 'restoreAll']);
 
     Route::get('/v1/shifts/gettrashed', [ShiftV1::class, 'getTrashed']);
+    Route::get('/v1/shifts/getoptions', [ShiftV1::class, 'getOptions']);
     Route::delete('/v1/shifts/destroy/{shift}', [ShiftV1::class, 'destroyForce']);
     Route::post('/v1/shifts/destroyes', [ShiftV1::class, 'destroyAll']);
     Route::post('/v1/shifts/destroyesforce', [ShiftV1::class, 'destroyForceAll']);
