@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\UnitRequest;
-use App\Http\Resources\V1\OptionsResource;
+use App\Http\Resources\v1\OptionsUnitResource;
 use App\Http\Resources\V1\UnitResource;
 use App\Models\Company;
 use App\Models\Unit;
@@ -27,7 +27,7 @@ class UnitController extends Controller
     protected $unit;
     protected $trashes;
     protected array $relations = ['center', 'customer', 'createdBy', 'updatedBy', 'shifts'];
-    protected array $fields = ['id', 'name'];
+    protected array $fields = ['id', 'name', 'code', 'customer_id'];
 
     public function index()
     {
@@ -93,7 +93,7 @@ class UnitController extends Controller
 
     public function getOptions() {
         $units = Unit::select($this->fields)->get();
-        $this->units = OptionsResource::collection($units);
+        $this->units = OptionsUnitResource::collection($units);
 
         return $this->successResponse(
             $this->units,
@@ -109,7 +109,7 @@ class UnitController extends Controller
         $units = Unit::select($this->fields)->whereHas('customer', function($query) use ($companyIds) {
             $query->whereIn('company_id', $companyIds);
         })->get();
-        $this->units = OptionsResource::collection($units);
+        $this->units = OptionsUnitResource::collection($units);
 
         return $this->successResponse(
             $this->units,

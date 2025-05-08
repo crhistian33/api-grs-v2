@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\v1\CompanyController as CompanyV1;
 use App\Http\Controllers\Api\v1\CustomerController as CustomerV1;
 use App\Http\Controllers\Api\v1\UnitController as UnitV1;
 use App\Http\Controllers\Api\v1\ShiftController as ShiftV1;
-use App\Http\Controllers\Api\v1\UnitShiftController as UnitShiftV1;
+use App\Http\Controllers\Api\v1\UserController as UserV1;
 use App\Http\Controllers\Api\v1\AssignmentController as AssignmentV1;
 
 Route::post('v1/auth/login', [AuthV1::class, 'login']);
@@ -19,6 +19,7 @@ Route::post('v1/auth/refresh', [AuthV1::class, 'refreshToken']);
 
 Route::group(['middleware' => 'jwt'], function () {
     Route::get('v1/auth/logout', [AuthV1::class, 'logout']);
+    Route::get('v1/auth/profile', [AuthV1::class, 'profile']);
 
     Route::get('/v1/type_workers/gettrashed', [TypeWorkerV1::class, 'getTrashed']);
     Route::get('/v1/type_workers/getoptions', [TypeWorkerV1::class, 'getOptions']);

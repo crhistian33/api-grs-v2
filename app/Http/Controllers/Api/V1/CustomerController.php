@@ -6,7 +6,7 @@ use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\CustomerRequest;
 use App\Http\Resources\V1\CustomerResource;
-use App\Http\Resources\V1\OptionsCodeResource;
+use App\Http\Resources\v1\OptionsCustomerResource;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Traits\ApiResponse;
@@ -25,7 +25,7 @@ class CustomerController extends Controller
     protected $customer;
     protected $trashes;
     protected array $relations = ['company', 'createdBy', 'updatedBy'];
-    protected array $fields = ['id', 'name', 'code'];
+    protected array $fields = ['id', 'name', 'code', 'company_id'];
 
     public function index()
     {
@@ -85,7 +85,7 @@ class CustomerController extends Controller
 
     public function getOptions() {
         $customers = Customer::select($this->fields)->get();
-        $this->customers = OptionsCodeResource::collection($customers);
+        $this->customers = OptionsCustomerResource::collection($customers);
 
         return $this->successResponse(
             $this->customers,
@@ -99,7 +99,7 @@ class CustomerController extends Controller
         $companyIds = $user->companies->pluck('id')->toArray();
 
         $customers = Customer::select($this->fields)->whereIn('company_id', $companyIds)->get();
-        $this->customers = OptionsCodeResource::collection($customers);
+        $this->customers = OptionsCustomerResource::collection($customers);
 
         return $this->successResponse(
             $this->customers,

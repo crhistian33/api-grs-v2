@@ -6,6 +6,7 @@ use App\Constants\ApiConstants;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\LoginRequest;
 use App\Http\Requests\V1\RefreshTokenRequest;
+use App\Http\Resources\v1\UserResource;
 use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,8 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 class AuthController extends Controller
 {
     use ApiResponse;
+
+    protected $user;
 
     public function register(Request $request)
     {
@@ -108,6 +111,18 @@ class AuthController extends Controller
             null,
             ApiConstants::LOGOUT_SUCCESS_TITLE,
             ApiConstants::LOGOUT_SUCCESS_MESSAGE,
+        );
+    }
+
+    public function profile()
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+        $this->user = new UserResource($user);
+
+        return $this->successResponse(
+            $this->user,
+            ApiConstants::ITEM_TITLE,
+            ApiConstants::ITEM_MESSAGE,
         );
     }
 

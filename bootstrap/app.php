@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'jwt' => \App\Http\Middleware\JwtMiddleware::class,
         ]);
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions) use ($errorResponse) {
         $exceptions->renderable(function (Exception $e) use ($errorResponse) {
